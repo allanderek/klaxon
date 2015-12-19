@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
+
+    <!-- Bootstrap Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
+    <title>Klaxon</title>
+
+<style class="theme-agnostic">
+body {
+  padding-top: 50px;
+}
+.lead-content {
+  padding: 40px 15px;
+  text-align: center;
+}
+</style>
+<style class="theme-style wonderland">
+</style>
+<style class="theme-style wind-up">
+</style>
+{% block page_css %}
+{% endblock %}
+</head>
+<body>
+
+    <nav class="navbar navbar-inverse navbar-fixed-top">
+      <div class="container">
+        <div class="navbar-header">
+          <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </button>
+          <a class="navbar-brand" href="#">Klaxon</a>
+        </div><!-- /.navbar-header -->
+        <div id="navbar" class="collapse navbar-collapse">
+          <ul class="nav navbar-nav">
+            <li {% if active_page == 'frontpage' %} class="active"{% endif%}>
+                <a href="{{ url_for('frontpage') }}">Welcome</a></li>
+            <li><a href="#feedback-area">Give Feedback</a></li>
+          </ul>
+        </div><!--/.nav-collapse -->
+      </div><!-- /.container -->
+    </nav>
+
+<div class="container">
+  <div class="lead-content">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+       {% if messages %}
+         {% for category, message in messages %}
+
+           <div class="alert alert-{{category|flash_bootstrap_category}} alert-dismissible" role="alert">
+             <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+             {{message}}
+           </div><!-- /.alert -->
+         {% endfor %}
+       {% endif %}
+    {% endwith %}
+
+    {% block lead_content %}
+    {% endblock %}
+  </div><!-- /.lead-content -->
+
+
+    {% block main_content %}
+    {% endblock %}
+
+    <div id="feedback-area" class="main-column">
+      <h2>Feedback</h2>      
+      <p>
+        We are always happy to receive any feedback both positive and negative.
+        If you wish you can provide your name and/or email. Neither is required,
+        if you do not provide an email we will have no way to respond to your
+        comment (which you may not want anyway).
+      </p>
+      <form id="give-feedback" class="feedback-controls" method="POST"
+            action="{{ url_for('give_feedback') }}">
+        <div class="form-group">
+          {{ feedback_form.hidden_tag() }}
+          {{ feedback_form.feedback_name(placeholder="Name: Not required", class="form-control") }}
+          {{ feedback_form.feedback_email(placeholder="Email: Not required, but I won't be able to reply.",  class="form-control") }}
+          {{ feedback_form.feedback_text(placeholder="What do you wish to suggest/praise/complain about?", class="form-control") }}
+          <button type="submit" class="form-control btn btn-default"
+                  id="feedback_submit_button" name="feedback_submit_button">Provide Feedback</button>
+        </div><!-- /.form-group -->
+      </form>
+    </div><!-- /#.feedback-area -->
+</div><!-- /.container -->
+
+<!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+<!-- Include all compiled plugins (below), or include individual files as needed -->
+<!-- Bootstrap Latest compiled and minified JavaScript -->
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"
+        integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS" crossorigin="anonymous"></script>
+{% block page_scripts %}
+{% endblock %}
+</body>
+</html>
