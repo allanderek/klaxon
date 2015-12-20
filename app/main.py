@@ -33,6 +33,11 @@ class Configuration(object):
 
     MAILGUN_API_KEY = os.environ.get('MAILGUN_API_KEY')
     ADMINS = ['allan.clark@gmail.com']
+    API_KEYS = dict()
+    with open('app/api-keys/keys', "r") as api_keys_file:
+        for line in api_keys_file:
+            provider, key = line.split('=')
+            API_KEYS[provider] = key
 
 application = flask.Flask(__name__)
 application.config.from_object(Configuration)
@@ -254,6 +259,9 @@ class BasicFunctionalityTest(flask.ext.testing.LiveServerTestCase):
 # A lightweight way to write down a few simple todos. Of course using the
 # issue tracker is the better way to do this, this is just a lightweight
 # solution for relatively *obvious* defects/todos.
+
+# TODO: Figure out why the phantomjs instances continue to run after the
+# tests are all finished.
 
 if __name__ == "__main__":
     application.run(debug=True, threaded=True)
