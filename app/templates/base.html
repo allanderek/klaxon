@@ -41,8 +41,10 @@ body {
         </div><!-- /.navbar-header -->
         <div id="navbar" class="collapse navbar-collapse">
           <ul class="nav navbar-nav">
-            <li {% if active_page == 'frontpage' %} class="active"{% endif%}>
-                <a href="{{ url_for('frontpage') }}">Welcome</a></li>
+            <li {% if active_page == 'frontpage' %} class="active"{% endif %}>
+              <a href="{{ url_for('frontpage') }}">Welcome</a></li>
+            <li {% if active_page == 'homepage' %} class="active" {% endif %}>
+              <a href="{{ url_for('frontpage') }}">Home</a></li>
             <li><a href="#feedback-area">Give Feedback</a></li>
           </ul>
         </div><!--/.nav-collapse -->

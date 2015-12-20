@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% set active_page = "home" %}
+{% block lead_content %}
+
+<h1>Welcome to Klaxon</h1>
+
+<p class="lead">
+  Organise and lead your online self.
+</p>
+{% endblock %}
+
+{% block main_content %}
+
+{% if result.error %}
+        <h2>Damn that error: {{ result.error.message }}</h2>
+{% endif %}
+
+{% if result.user %}
+        <h1>Hi {{ result.user.name }}</h1>
+        <h2>Your id is: {{ result.user.id }}</h2>
+        <h2>Your email is: {{ result.user.email }}</h2>
+{% endif %}
+
+
+        
+{% endblock %}

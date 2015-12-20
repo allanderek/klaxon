@@ -1,14 +1,20 @@
-"""A simple web application to create feeds similar to that of the
-   live-text feeds on BBC or theguardian. The idea is that anyone can
-   begin a live-text feed and additionally readers can combine live-text
-   feeds.
+"""An attempt at a web application that consolidates your
+online life. The idea is that one place will provide you
+with a list of things to do, such as 'You have unread Facebook
+events, unread important emails, some rss feeds to read, and a
+twitter notification'. Something like that, not really sure how
+will all work in the end. If at all.
 """
 
 import requests
 import flask
+from flask import request, make_response
 from flask.ext.sqlalchemy import SQLAlchemy
 import flask_wtf
 import wtforms
+from authomatic.providers import oauth2
+from authomatic.adapters import WerkzeugAdapter
+from authomatic import Authomatic
 
 import threading
 
@@ -29,18 +35,12 @@ class Configuration(object):
     LIVE_SERVER_PORT = 5000
     database_file = os.path.join(basedir, '../../db.sqlite')
     SQLALCHEMY_DATABASE_URI = 'sqlite:///' + database_file
-    DOMAIN = os.environ.get('BLOWBYBLOW_DOMAIN', 'localhost')
-
-    MAILGUN_API_KEY = os.environ.get('MAILGUN_API_KEY')
     ADMINS = ['allan.clark@gmail.com']
-    API_KEYS = dict()
-    with open('app/api-keys/keys', "r") as api_keys_file:
-        for line in api_keys_file:
-            provider, key = line.split('=')
-            API_KEYS[provider] = key
 
 application = flask.Flask(__name__)
 application.config.from_object(Configuration)
+application.config.from_pyfile('private/settings.py')
+
 
 database = SQLAlchemy(application)
 
@@ -48,6 +48,35 @@ database = SQLAlchemy(application)
 class DBUser(database.Model):
     __tablename__ = 'users'
     id = database.Column(database.Integer, primary_key=True)
+
+
+AUTHORISATON_CONFIG = {
+    'google': {'class_': oauth2.Google,
+               'consumer_key': application.config['GOOGLE_CONSUMER_KEY'],
+               'consumer_secret': application.config['GOOGLE_CONSUMER_SECRET'],
+               'scope': ['profile', 'email']
+               }
+}
+authomatic = Authomatic(AUTHORISATON_CONFIG,
+                        str(application.config['SECRET_KEY']),
+                        report_errors=False)
+
+
+@application.route('/login/<provider_name>/', methods=['GET', 'POST'])
+def login(provider_name):
+    response = make_response()
+    adapter = WerkzeugAdapter(request, response)
+    result = authomatic.login(adapter, provider_name)
+    # If there is no LoginResult object, the login procedure is still pending.
+    if result:
+        if result.user:
+            # We need to update the user to get more info.
+            result.user.update()
+        # The rest happens inside the template.
+        return render_template('home.html', result=result)
+
+    # Don't forget to return the response.
+    return response
 
 
 @application.template_test('plural')
