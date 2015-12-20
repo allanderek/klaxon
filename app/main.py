@@ -4,12 +4,9 @@
    feeds.
 """
 
-import random
 import requests
-import datetime
 import flask
 from flask.ext.sqlalchemy import SQLAlchemy
-from sqlalchemy.exc import SQLAlchemyError
 import flask_wtf
 import wtforms
 
