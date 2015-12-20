@@ -16,6 +16,7 @@ Cakefile.js
 app/coffee/*.js
 app/static/compiled-js/
 app/test.db
+app/api-keys
 
 node_modules/
 npm-debug.log
