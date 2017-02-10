@@ -3,11 +3,74 @@ import os
 from flask.ext.script import Manager
 from flask.ext.migrate import Migrate, MigrateCommand
 
-from app.main import application, database
+from app.main import application, database, set_database
 
 migrate = Migrate(application, database)
 manager = Manager(application)
 manager.add_command('db', MigrateCommand)
+
+@manager.command
+def develop(database=None, reset_database=False):
+    """Develop locally and test out the server manually. Note that
+    'reset_database' has no effect unless you set the database name.
+    """
+    # Developing locally means that the sample ATS when using Oauthlib will have
+    # a problem because by default Oauthlib insists that we use https rather than
+    # http. To do this, we should be able to create a self-signed certificate,
+    # but I haven't been able to get this to work for some reason. Hence, instead
+    # we disable the https requirement for local development only.
+    os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
+    # '--threaded' is required when we make a request to ourselves, this is when
+    # testing the sample API or the sample ATS. In the case of the sample API,
+    # it is the dev.prechecked.com server that is making a request to the sample
+    # API which would generally be on a different server but here is a request to
+    # ourselves. In the case of the sample ATS, it is the ATS which is making a
+    # request to the main prechecked app, normally the ATS would be a different
+    # server but here it is making a call to itself.
+
+    extra_dirs = [
+        'app/static/css',
+        'app/static/js',
+        'app/templates'
+        ]
+    extra_files = extra_dirs[:]
+    for extra_dir in extra_dirs:
+        for dirname, dirs, files in os.walk(extra_dir):
+            for filename in files:
+                filename = os.path.join(dirname, filename)
+                if os.path.isfile(filename):
+                    extra_files.append(filename)
+
+    if database is not None:
+        set_database(database_filename=database, reset_database=reset_database)
+
+    port = 8080
+    host = '0.0.0.0'
+    application.run(
+        host=host,
+        port=port,
+        use_reloader=True,
+        threaded=True,
+        extra_files=extra_files)
+    return 0
+    # command = 'python manage.py runserver -h 0.0.0.0 -p 8080 --threaded'
+    # return run_command(command)
+
+
+@manager.command
+def remake_db(really=False, addverifiers=True, staff=True, port=None):
+    if not really:
+        print("You should probably use 'python manage.py db upgrade' instead.")
+        print("If you really want to use remake_db, provide option --really.")
+        print("")
+        print("(See https://flask-migrate.readthedocs.org/en/latest/ for"
+              " details.)")
+        return 0
+    else:
+        database.drop_all()
+        database.create_all()
+        database.session.commit()
+
 
 
 def run_command(command):

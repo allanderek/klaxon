@@ -27,13 +27,16 @@ def async(f):
 
 
 import os
-basedir = os.path.abspath(os.path.dirname(__file__))
 
+def generated_file_path(additional_path):
+    basedir = os.path.abspath(os.path.dirname(__file__))
+    generated_dir = os.path.join(basedir, '../generated/')
+    return os.path.join(generated_dir, additional_path)
 
 class Configuration(object):
     SECRET_KEY = b'\xa0a\xd7nCN\x84\xd4Hn\xd5*\xa2\x89z\xdb\xf8w\xbd\xab)\xd3O\xd1'  # noqa
     LIVE_SERVER_PORT = 5000
-    database_file = os.path.join(basedir, '../../db.sqlite')
+    database_file = generated_file_path('play.db')
     SQLALCHEMY_DATABASE_URI = 'sqlite:///' + database_file
     ADMINS = ['allan.clark@gmail.com']
 
@@ -43,6 +46,20 @@ application.config.from_pyfile('private/settings.py')
 
 
 database = SQLAlchemy(application)
+
+def set_database(database_filename='test.db', reset_database=False):
+    """Allows us to set the database name so that we could, for example, run
+    the develop server with the test database, which would then have all the
+    test data, that may be useful either just to avoid inputting it by hand or
+    to figure out why a test is failing.
+    """
+    database_file = generated_file_path(database_filename)
+    application.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + database_file
+    if reset_database:
+        with application.app_context():
+            database.drop_all()
+            database.create_all()
+            database.session.commit()
 
 
 class DBUser(database.Model):
@@ -285,12 +302,6 @@ class BasicFunctionalityTest(flask.ext.testing.LiveServerTestCase):
         database.session.remove()
         database.drop_all()
 
-# A lightweight way to write down a few simple todos. Of course using the
-# issue tracker is the better way to do this, this is just a lightweight
-# solution for relatively *obvious* defects/todos.
-
-# TODO: Figure out why the phantomjs instances continue to run after the
-# tests are all finished.
 
 if __name__ == "__main__":
     application.run(debug=True, threaded=True)

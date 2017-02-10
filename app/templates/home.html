@@ -21,6 +21,91 @@
         <h2>Your email is: {{ result.user.email }}</h2>
 {% endif %}
 
+        <div class="tabs four">
+          <input id='tab-1' type='radio' name='tabgroupB' checked />
+          <label class="pseudo button toggle" for="tab-1">Stable</label>
+          <input id='tab-2' type='radio' name='tabgroupB'>
+          <label class="pseudo button toggle" for="tab-2">Queue</label>
+          <input id='tab-3' type='radio' name='tabgroupB'>
+          <label class="pseudo button toggle" for="tab-3">Dev-Stable</label>
+          <input id='tab-4' type='radio' name='tabgroupB'>
+          <label class="pseudo button toggle" for="tab-4">Dev-Queue</label>
+          <div class="row">
+            <div id="stable-links">
+              <h2>Stable</h2>
+                <ul>
+                </ul>
+            </div>
+            <div id="queue-links">
+              <h2>Queue</h2>
+                <ul>
+                </ul>
+            </div>
+            <div id="dev-stable-links">
+              <h2>Dev-Stable</h2>
+                <ul>
+                </ul>
+            </div>            
+            <div id="dev-queue-links">
+              <h2>Dev-Queue</h2>
+                <ul>
+                </ul>
+            </div>            
+          </div>
+        </div>
 
         
 {% endblock %}
+
+{% block page_scripts %}
+<script>
+/* global $ */
+function add_link(tabid, name, href){
+    $(`#${tabid} ul`).append(`<li><a class="${tabid}" href="${href}">${name}</a></li>`);
+}
+
+$(document).ready(function(){
+    add_link('stable-links', 'Gmail', 'https://mail.google.com/mail/u/0/#inbox');
+    add_link('stable-links', 'Calendar', 'https://calendar.google.com/calendar/render?tab=mc#main_7');
+    add_link('stable-links', 'Dragon Go', 'http://www.dragongoserver.net/status.php');
+    add_link('stable-links', 'Tesuji-Charm', 'http://allanderek.pythonanywhere.com/status');
+    add_link('stable-links', 'TweetDeck', 'https://tweetdeck.twitter.com/');
+    add_link('stable-links', 'CommaFeed', 'https://www.commafeed.com/#/feeds/view/category/all');
+    add_link('stable-links', 'HashNode', 'https://hashnode.com/');
+    add_link('stable-links', 'HackerNews', 'https://news.ycombinator.com/newest');
+    add_link('stable-links', 'BBC Russian', 'http://www.bbc.com/russian');
+    add_link('stable-links', 'Tumblr', 'https://www.tumblr.com/blog/allanderek');
+    add_link('stable-links', 'Facebook', 'https://www.facebook.com/');
+    add_link('stable-links', 'CoinBase', 'https://www.coinbase.com/dashboard');
+    add_link('stable-links', 'IG', 'https://www.ig.com/uk/login');
+    add_link('stable-links', 'CodeInstitute', 'http://lms.codeinstitute.net/members/allanderek/dashboard/');
+    add_link('stable-links', 'My Blog', 'http://allanderek.github.io/');
+
+    add_link('queue-links', 'Hunted Apply', 'http://www.huntedapplications.com/apply.html');
+    add_link('queue-links', 'Python jobs board', 'https://www.python.org/jobs/location/telecommute/');
+    add_link('queue-links', 'Jobs4Bitcoins', 'https://www.reddit.com/r/Jobs4Bitcoins/');
+    add_link('queue-links', 'Outsourcely', 'https://www.outsourcely.com/remoteworker');
+    add_link('queue-links', 'RedditFreelance', 'https://www.reddit.com/r/freelanceuk/');
+    add_link('queue-links', 'RemotePython', 'https://www.remotepython.com/jobs/?country=any');
+    add_link('queue-links', 'Flask Token based authentication', 'https://realpython.com/blog/python/token-based-authentication-with-flask/');
+    add_link('queue-links', 'Kodi HTG', 'http://www.howtogeek.com/290346/kodi-is-not-a-piracy-application/');
+
+    add_link('dev-stable-links', 'C9', 'https://c9.io/allanderek');
+    add_link('dev-stable-links', 'Remi-running-app', 'https://remi-allanderek.c9users.io:8081/');
+    add_link('dev-stable-links', 'GitHub', 'https://github.com/');
+    add_link('dev-stable-links', 'Proggit', 'https://www.reddit.com/me/m/programming/');
+    add_link('dev-stable-links', 'Code Review Stack Exchange', 'http://codereview.stackexchange.com/questions');
+    add_link('dev-stable-links', 'Tomatoes timer', 'http://www.tomato.es/#');
+
+    add_link('dev-queue-links', 'git tips', 'https://adaptechsolutions.net/git-pro-tips/');
+    add_link('dev-queue-links', 'XSS-Game', 'https://xss-game.appspot.com/level4');
+    add_link('dev-queue-links', 'Bug Hunter University', 'https://sites.google.com/site/bughunteruniversity/behind-the-scenes/rewards-philosophy');
+    add_link('dev-queue-links', 'Content Security Policy', 'https://developers.google.com/web/fundamentals/security/csp/');
+    add_link('dev-queue-links', 'Py-Week', 'https://pyweek.org/23/');
+    add_link('dev-queue-links', 'Google Reward Program (bounties)', 'https://www.google.com/about/appsecurity/reward-program/');
+    add_link('dev-queue-links', 'Python Import system', 'https://docs.python.org/3/reference/import.html');
+    add_link('dev-queue-links', 'Installing GitHub Enterprise', 'https://help.github.com/enterprise/2.8/admin/guides/installation/installing-github-enterprise-on-openstack-kvm/');
+    add_link('dev-queue-links', 'Py-heat', 'https://github.com/csurfer/pyheat');
+});
+</script>
+{% endblock page_scripts%}
