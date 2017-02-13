@@ -4,55 +4,47 @@
 
 <h1>Welcome to Klaxon</h1>
 
-<p class="lead">
-  Organise and lead your online self.
-</p>
+<p class="lead">Organise and lead your online self.</p>
 {% endblock %}
 
 {% block main_content %}
 
-{% if result.error %}
-        <h2>Damn that error: {{ result.error.message }}</h2>
+{% if user %}
+<h1>Your id is: {{ user.id }}</h1>
 {% endif %}
 
-{% if result.user %}
-        <h1>Hi {{ result.user.name }}</h1>
-        <h2>Your id is: {{ result.user.id }}</h2>
-        <h2>Your email is: {{ result.user.email }}</h2>
-{% endif %}
-
-        <div class="tabs four">
-          <input id='tab-1' type='radio' name='tabgroupB' checked />
-          <label class="pseudo button toggle" for="tab-1">Stable</label>
-          <input id='tab-2' type='radio' name='tabgroupB'>
-          <label class="pseudo button toggle" for="tab-2">Queue</label>
-          <input id='tab-3' type='radio' name='tabgroupB'>
-          <label class="pseudo button toggle" for="tab-3">Dev-Stable</label>
-          <input id='tab-4' type='radio' name='tabgroupB'>
-          <label class="pseudo button toggle" for="tab-4">Dev-Queue</label>
-          <div class="row">
-            <div id="stable-links">
-              <h2>Stable</h2>
-                <ul>
-                </ul>
-            </div>
-            <div id="queue-links">
-              <h2>Queue</h2>
-                <ul>
-                </ul>
-            </div>
-            <div id="dev-stable-links">
-              <h2>Dev-Stable</h2>
-                <ul>
-                </ul>
-            </div>            
-            <div id="dev-queue-links">
-              <h2>Dev-Queue</h2>
-                <ul>
-                </ul>
-            </div>            
-          </div>
+<div class="tabs four">
+    <input id='tab-1' type='radio' name='tabgroupB' checked />
+    <label class="pseudo button toggle" for="tab-1">Stable</label>
+    <input id='tab-2' type='radio' name='tabgroupB'>
+    <label class="pseudo button toggle" for="tab-2">Queue</label>
+    <input id='tab-3' type='radio' name='tabgroupB'>
+    <label class="pseudo button toggle" for="tab-3">Dev-Stable</label>
+    <input id='tab-4' type='radio' name='tabgroupB'>
+    <label class="pseudo button toggle" for="tab-4">Dev-Queue</label>
+    <div class="row">
+        <div id="stable-links">
+            <h2>Stable</h2>
+            <ul>
+            </ul>
         </div>
+        <div id="queue-links">
+            <h2>Queue</h2>
+            <ul>
+            </ul>
+        </div>
+        <div id="dev-stable-links">
+            <h2>Dev-Stable</h2>
+            <ul>
+            </ul>
+        </div>            
+        <div id="dev-queue-links">
+            <h2>Dev-Queue</h2>
+            <ul>
+            </ul>
+        </div>            
+    </div>
+</div>
 
         
 {% endblock %}

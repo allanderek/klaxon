@@ -39,6 +39,7 @@ class Configuration(object):
     database_file = generated_file_path('play.db')
     SQLALCHEMY_DATABASE_URI = 'sqlite:///' + database_file
     ADMINS = ['allan.clark@gmail.com']
+    DEBUG=True
 
 application = flask.Flask(__name__)
 application.config.from_object(Configuration)
@@ -61,11 +62,24 @@ def set_database(database_filename='test.db', reset_database=False):
             database.create_all()
             database.session.commit()
 
-
-class DBUser(database.Model):
-    __tablename__ = 'users'
+class User(database.Model):
+    __tablename__ = 'user'
     id = database.Column(database.Integer, primary_key=True)
 
+# TODO: Could this be a constant?
+def user_id_column(nullable=True):
+    return database.Column(database.Integer, database.ForeignKey('user.id'), nullable=nullable)
+def user_column(key_field):
+    return database.relationship(User, foreign_keys=[key_field])
+    
+class AccountLink(database.Model):
+    """Links a klaxon account to a login from an external provider such
+    google, or twitter."""
+    external_user_id = database.Column(database.String, primary_key=True)
+    provider_name = database.Column(database.String, nullable=False)
+
+    user_id = user_id_column()
+    user = user_column(user_id)
 
 AUTHORISATON_CONFIG = {
     'google': {'class_': oauth2.Google,
@@ -83,14 +97,47 @@ authomatic = Authomatic(AUTHORISATON_CONFIG,
 def login(provider_name):
     response = make_response()
     adapter = WerkzeugAdapter(request, response)
-    result = authomatic.login(adapter, provider_name)
+    result = authomatic.login(
+        WerkzeugAdapter(request, response),
+        provider_name,
+        session=flask.session,
+        session_saver=lambda: application.save_session(flask.session, response)
+    )
+
     # If there is no LoginResult object, the login procedure is still pending.
     if result:
+        if result.error:
+            # TODO: Something better than this obviously
+            flask.flash(result.error)
+
         if result.user:
             # We need to update the user to get more info.
             result.user.update()
-        # The rest happens inside the template.
-        return render_template('home.html', result=result)
+            # We can now access result.user.name, result.user.email and result.user.id
+            account_link = AccountLink.query.filter_by(
+                external_user_id=result.user.id,
+                provider_name=provider_name).first()
+            # So probably we actually want to ask the user if they want to create
+            # an account or something like that. Alternatively we have login as
+            # separate from 'sign-up with' and here we would just error and say
+            # "No such account, would you like to sign-up, or perhaps you have
+            # already signed-up with a different provider?"
+            if account_link:
+                user = account_link.user
+            else:
+                user = User()
+                database.session.add(user)
+                account_link = AccountLink(
+                    external_user_id = result.user.id,
+                    provider_name = provider_name,
+                    user = user
+                    )
+                database.session.add(account_link)
+                database.session.commit()
+            flask.session['user.id'] = user.id
+        # TODO: If there is no result.user? I think that means that the person
+        # failed to login to the provider, or decided against it.
+        return redirect(default='frontpage')
 
     # Don't forget to return the response.
     return response
@@ -101,15 +148,6 @@ def is_plural(container):
     return len(container) > 1
 
 
-@application.template_filter('flash_bootstrap_category')
-def flash_bootstrap_category(flash_category):
-    return {'success': 'success',
-            'info': 'info',
-            'warning': 'warning',
-            'error': 'danger',
-            'danger': 'danger'}.get(flash_category, 'info')
-
-
 def redirect_url(default='frontpage'):
     """ A simple helper function to redirect the user back to where they came.
 
@@ -117,8 +155,12 @@ def redirect_url(default='frontpage'):
         http://stackoverflow.com/questions/14277067/redirect-back-in-flask
     """
 
-    return (flask.request.args.get('next') or flask.request.referrer or
+    result = (flask.request.args.get('next') or flask.request.referrer or
             flask.url_for(default))
+    return result
+
+def redirect(default='frontpage'):
+    return flask.redirect(redirect_url(default=default))
 
 
 def render_template(*args, **kwargs):
@@ -136,6 +178,10 @@ class FeedbackForm(flask_wtf.Form):
 
 @application.route("/")
 def frontpage():
+    if 'user.id' in flask.session:
+        user_id = flask.session['user.id']
+        user = User.query.filter_by(id = user_id).first()
+        return render_template('home.html', user = user)
     return render_template('frontpage.html')
 
 
