@@ -88,7 +88,7 @@ class UserLink(database.Model):
     address = database.Column(database.String, nullable=False)
 
     user_id = user_id_column()
-    user = user_column(user_id)
+    user = user_column(user_id, backref=database.backref('links', lazy='dynamic'))
 
 AUTHORISATON_CONFIG = {
     'google': {'class_': oauth2.Google,
@@ -188,6 +188,11 @@ def get_current_user():
         return user
     return None
 
+def unauthorized_response(message=None):
+    message = message or 'You must be logged-in to do that.'
+    response = flask.jsonify({'message': message})
+    response.status_code = 401
+    return response
 
 @application.route("/")
 def frontpage():
@@ -207,12 +212,17 @@ class AddUpdateLinkForm(flask_wtf.Form):
 @application.route("/add-update-link", methods=['POST'])
 def add_update_link():
     assert request.method == 'POST'
+    user = get_current_user()
+    # TODO: Test this is out, in particular I guess you could use two
+    # windows to test this out manually.
+    if not user:
+        return unauthorized_response()
     form = AddUpdateLinkForm(request.form)
     if form.link_id.data:
         link = UserLink.query.filter_by(id=form.link_id.data).first()
         # TODO: What to do if we do not find it?
     else:
-        link = UserLink()
+        link = UserLink(user=user)
         database.session.add(link)
     link.category = form.category.data
     link.name = form.name.data

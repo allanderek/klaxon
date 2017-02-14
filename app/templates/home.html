@@ -67,7 +67,7 @@ function add_category(tabid){
     number_class = "four";
   }
   $('#link-tabs-container').addClass(number_class);
-  
+
   return $(`#${tabid}-links`);
 }
 
@@ -92,7 +92,6 @@ function update_link(e){
           var name = $form.find('input[name="name"]').val();
           var address = $form.find('input[name="address"]').val();
           add_link(category, name, address);
-          alert(`Updating link: '${category}' '${name}' '${address}'`);
         },
         error: function(data){
           alert('Hmm, something failed.');
@@ -144,7 +143,11 @@ $(document).ready(function(){
     add_link('dev-queue', 'Python Import system', 'https://docs.python.org/3/reference/import.html');
     add_link('dev-queue', 'Installing GitHub Enterprise', 'https://help.github.com/enterprise/2.8/admin/guides/installation/installing-github-enterprise-on-openstack-kvm/');
     add_link('dev-queue', 'Py-heat', 'https://github.com/csurfer/pyheat');
-    
+
+    {% for link in user.links.all() %}
+      add_link('{{link.category}}', '{{link.name}}', '{{link.address}}')
+    {% endfor %}
+
     $('#link-tabs-container input[type="radio"]').first().click();
 });
 </script>
