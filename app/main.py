@@ -69,14 +69,23 @@ class User(database.Model):
 # TODO: Could this be a constant?
 def user_id_column(nullable=True):
     return database.Column(database.Integer, database.ForeignKey('user.id'), nullable=nullable)
-def user_column(key_field):
-    return database.relationship(User, foreign_keys=[key_field])
+def user_column(key_field, **kwargs):
+    return database.relationship(User, foreign_keys=[key_field], **kwargs)
     
 class AccountLink(database.Model):
     """Links a klaxon account to a login from an external provider such
     google, or twitter."""
     external_user_id = database.Column(database.String, primary_key=True)
     provider_name = database.Column(database.String, nullable=False)
+
+    user_id = user_id_column()
+    user = user_column(user_id)
+
+class UserLink(database.Model):
+    id = database.Column(database.Integer, primary_key=True)
+    category = database.Column(database.String, nullable=False)
+    name = database.Column(database.String, nullable=False)
+    address = database.Column(database.String, nullable=False)
 
     user_id = user_id_column()
     user = user_column(user_id)
@@ -170,20 +179,46 @@ def render_template(*args, **kwargs):
     return flask.render_template(*args, feedback_form=FeedbackForm(), **kwargs)
 
 
-class FeedbackForm(flask_wtf.Form):
-    feedback_name = wtforms.StringField("Name:")
-    feedback_email = wtforms.StringField("Email:")
-    feedback_text = wtforms.TextAreaField("Feedback:")
+def get_current_user():
+    user_id = flask.session.get('user.id', None)
+    if user_id:
+        user = User.query.filter_by(id = user_id).first()
+        # Note that this will return 'None' if there is no such user, which may
+        # we be what we want but is questionable.
+        return user
+    return None
 
 
 @application.route("/")
 def frontpage():
-    if 'user.id' in flask.session:
-        user_id = flask.session['user.id']
-        user = User.query.filter_by(id = user_id).first()
-        return render_template('home.html', user = user)
+    user = get_current_user()
+    if user:
+        return render_template('home.html', user=user)
     return render_template('frontpage.html')
 
+
+class AddUpdateLinkForm(flask_wtf.Form):
+    link_id = wtforms.HiddenField('link_id')
+    category = wtforms.StringField("Email:")
+    name = wtforms.StringField("Name:")
+    address = wtforms.TextAreaField("Feedback:")
+
+
+@application.route("/add-update-link", methods=['POST'])
+def add_update_link():
+    assert request.method == 'POST'
+    form = AddUpdateLinkForm(request.form)
+    if form.link_id.data:
+        link = UserLink.query.filter_by(id=form.link_id.data).first()
+        # TODO: What to do if we do not find it?
+    else:
+        link = UserLink()
+        database.session.add(link)
+    link.category = form.category.data
+    link.name = form.name.data
+    link.address = form.address.data
+    database.session.commit()
+    return flask.jsonify({'link_id': link.id})
 
 @async
 def send_email_message_mailgun(email):
@@ -222,6 +257,12 @@ def send_email_message(email):
     # list of emails sent as a JSON object or something.
     if not application.config['TESTING']:
         send_email_message_mailgun(email)
+
+
+class FeedbackForm(flask_wtf.Form):
+    feedback_name = wtforms.StringField("Name:")
+    feedback_email = wtforms.StringField("Email:")
+    feedback_text = wtforms.TextAreaField("Feedback:")
 
 
 @application.route('/give_feedback', methods=['POST'])
