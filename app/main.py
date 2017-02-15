@@ -9,7 +9,7 @@ will all work in the end. If at all.
 import requests
 import flask
 from flask import request, make_response
-from flask.ext.sqlalchemy import SQLAlchemy
+from flask_sqlalchemy import SQLAlchemy
 import flask_wtf
 import wtforms
 from authomatic.providers import oauth2
@@ -38,6 +38,7 @@ class Configuration(object):
     LIVE_SERVER_PORT = 5000
     database_file = generated_file_path('play.db')
     SQLALCHEMY_DATABASE_URI = 'sqlite:///' + database_file
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
     ADMINS = ['allan.clark@gmail.com']
     DEBUG=True
 
@@ -202,7 +203,7 @@ def frontpage():
     return render_template('frontpage.html')
 
 
-class AddUpdateLinkForm(flask_wtf.Form):
+class AddUpdateLinkForm(flask_wtf.FlaskForm):
     link_id = wtforms.HiddenField('link_id')
     category = wtforms.StringField("Email:")
     name = wtforms.StringField("Name:")
@@ -269,7 +270,7 @@ def send_email_message(email):
         send_email_message_mailgun(email)
 
 
-class FeedbackForm(flask_wtf.Form):
+class FeedbackForm(flask_wtf.FlaskForm):
     feedback_name = wtforms.StringField("Name:")
     feedback_email = wtforms.StringField("Email:")
     feedback_text = wtforms.TextAreaField("Feedback:")
@@ -301,14 +302,14 @@ def give_feedback():
     return flask.redirect(redirect_url())
 
 # Now for some testing.
-import flask.ext.testing
+import flask_testing
 import urllib
 from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException
 import pytest
 
 
-class BasicFunctionalityTest(flask.ext.testing.LiveServerTestCase):
+class BasicFunctionalityTest(flask_testing.LiveServerTestCase):
 
     def create_app(self):
         application.config['TESTING'] = True
