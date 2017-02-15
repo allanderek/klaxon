@@ -71,14 +71,14 @@ def user_id_column(nullable=True):
     return database.Column(database.Integer, database.ForeignKey('user.id'), nullable=nullable)
 def user_column(key_field, **kwargs):
     return database.relationship(User, foreign_keys=[key_field], **kwargs)
-    
+
 class AccountLink(database.Model):
     """Links a klaxon account to a login from an external provider such
     google, or twitter."""
     external_user_id = database.Column(database.String, primary_key=True)
     provider_name = database.Column(database.String, nullable=False)
 
-    user_id = user_id_column()
+    user_id = user_id_column(nullable=False)
     user = user_column(user_id)
 
 class UserLink(database.Model):
@@ -87,7 +87,7 @@ class UserLink(database.Model):
     name = database.Column(database.String, nullable=False)
     address = database.Column(database.String, nullable=False)
 
-    user_id = user_id_column()
+    user_id = user_id_column(nullable=False)
     user = user_column(user_id, backref=database.backref('links', lazy='dynamic'))
 
 AUTHORISATON_CONFIG = {

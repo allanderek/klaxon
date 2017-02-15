@@ -102,47 +102,6 @@ function update_link(e){
 
 $(document).ready(function(){
     $('.update-link-button').click(update_link);
-    add_link('stable', 'Gmail', 'https://mail.google.com/mail/u/0/#inbox');
-    add_link('stable', 'Calendar', 'https://calendar.google.com/calendar/render?tab=mc#main_7');
-    add_link('stable', 'Dragon Go', 'http://www.dragongoserver.net/status.php');
-    add_link('stable', 'Tesuji-Charm', 'http://allanderek.pythonanywhere.com/status');
-    add_link('stable', 'TweetDeck', 'https://tweetdeck.twitter.com/');
-    add_link('stable', 'CommaFeed', 'https://www.commafeed.com/#/feeds/view/category/all');
-    add_link('stable', 'HashNode', 'https://hashnode.com/');
-    add_link('stable', 'HackerNews', 'https://news.ycombinator.com/newest');
-    add_link('stable', 'BBC Russian', 'http://www.bbc.com/russian');
-    add_link('stable', 'Tumblr', 'https://www.tumblr.com/blog/allanderek');
-    add_link('stable', 'Facebook', 'https://www.facebook.com/');
-    add_link('stable', 'CoinBase', 'https://www.coinbase.com/dashboard');
-    add_link('stable', 'IG', 'https://www.ig.com/uk/login');
-    add_link('stable', 'CodeInstitute', 'http://lms.codeinstitute.net/members/allanderek/dashboard/');
-    add_link('stable', 'My Blog', 'http://allanderek.github.io/');
-
-    add_link('queue', 'Hunted Apply', 'http://www.huntedapplications.com/apply.html');
-    add_link('queue', 'Python jobs board', 'https://www.python.org/jobs/location/telecommute/');
-    add_link('queue', 'Jobs4Bitcoins', 'https://www.reddit.com/r/Jobs4Bitcoins/');
-    add_link('queue', 'Outsourcely', 'https://www.outsourcely.com/remoteworker');
-    add_link('queue', 'RedditFreelance', 'https://www.reddit.com/r/freelanceuk/');
-    add_link('queue', 'RemotePython', 'https://www.remotepython.com/jobs/?country=any');
-    add_link('queue', 'Flask Token based authentication', 'https://realpython.com/blog/python/token-based-authentication-with-flask/');
-    add_link('queue', 'Kodi HTG', 'http://www.howtogeek.com/290346/kodi-is-not-a-piracy-application/');
-
-    add_link('dev-stable', 'C9', 'https://c9.io/allanderek');
-    add_link('dev-stable', 'Remi-running-app', 'https://remi-allanderek.c9users.io:8081/');
-    add_link('dev-stable', 'GitHub', 'https://github.com/');
-    add_link('dev-stable', 'Proggit', 'https://www.reddit.com/me/m/programming/');
-    add_link('dev-stable', 'Code Review Stack Exchange', 'http://codereview.stackexchange.com/questions');
-    add_link('dev-stable', 'Tomatoes timer', 'http://www.tomato.es/#');
-
-    add_link('dev-queue', 'git tips', 'https://adaptechsolutions.net/git-pro-tips/');
-    add_link('dev-queue', 'XSS-Game', 'https://xss-game.appspot.com/level4');
-    add_link('dev-queue', 'Bug Hunter University', 'https://sites.google.com/site/bughunteruniversity/behind-the-scenes/rewards-philosophy');
-    add_link('dev-queue', 'Content Security Policy', 'https://developers.google.com/web/fundamentals/security/csp/');
-    add_link('dev-queue', 'Py-Week', 'https://pyweek.org/23/');
-    add_link('dev-queue', 'Google Reward Program (bounties)', 'https://www.google.com/about/appsecurity/reward-program/');
-    add_link('dev-queue', 'Python Import system', 'https://docs.python.org/3/reference/import.html');
-    add_link('dev-queue', 'Installing GitHub Enterprise', 'https://help.github.com/enterprise/2.8/admin/guides/installation/installing-github-enterprise-on-openstack-kvm/');
-    add_link('dev-queue', 'Py-heat', 'https://github.com/csurfer/pyheat');
 
     {% for link in user.links.all() %}
       add_link('{{link.category}}', '{{link.name}}', '{{link.address}}')
