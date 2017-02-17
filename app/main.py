@@ -94,7 +94,7 @@ class UserLink(database.Model):
 def login(provider_name):
     scope = ['https://www.googleapis.com/auth/userinfo.email']
     client_id = application.config['GOOGLE_CONSUMER_KEY']
-    redirect_uri = 'http://klaxon-allanderek.c9users.io/login/google/'
+    redirect_uri = flask.url_for('login', provider_name=provider_name, _external=True)
     oauth = requests_oauthlib.OAuth2Session(client_id, redirect_uri=redirect_uri, scope=scope)
 
     state = request.args.get('state', None)
