@@ -106,7 +106,6 @@ authomatic = Authomatic(AUTHORISATON_CONFIG,
 @application.route('/login/<provider_name>/', methods=['GET', 'POST'])
 def login(provider_name):
     response = make_response()
-    adapter = WerkzeugAdapter(request, response)
     result = authomatic.login(
         WerkzeugAdapter(request, response),
         provider_name,
