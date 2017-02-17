@@ -11,6 +11,7 @@
 
 {% if user %}
 <h1>Your id is: {{ user.id }}</h1>
+<a href="{{url_for('logout')}}">Logout</a>
 {% endif %}
 
 <div id="link-tabs-container" class="tabs">

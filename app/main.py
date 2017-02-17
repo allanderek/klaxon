@@ -7,14 +7,12 @@ will all work in the end. If at all.
 """
 
 import requests
+import requests_oauthlib
 import flask
 from flask import request, make_response
 from flask_sqlalchemy import SQLAlchemy
 import flask_wtf
 import wtforms
-from authomatic.providers import oauth2
-from authomatic.adapters import WerkzeugAdapter
-from authomatic import Authomatic
 
 import threading
 
@@ -91,65 +89,63 @@ class UserLink(database.Model):
     user_id = user_id_column(nullable=False)
     user = user_column(user_id, backref=database.backref('links', lazy='dynamic'))
 
-AUTHORISATON_CONFIG = {
-    'google': {'class_': oauth2.Google,
-               'consumer_key': application.config['GOOGLE_CONSUMER_KEY'],
-               'consumer_secret': application.config['GOOGLE_CONSUMER_SECRET'],
-               'scope': ['profile', 'email']
-               }
-}
-authomatic = Authomatic(AUTHORISATON_CONFIG,
-                        str(application.config['SECRET_KEY']),
-                        report_errors=False)
-
 
 @application.route('/login/<provider_name>/', methods=['GET', 'POST'])
 def login(provider_name):
-    response = make_response()
-    result = authomatic.login(
-        WerkzeugAdapter(request, response),
-        provider_name,
-        session=flask.session,
-        session_saver=lambda: application.save_session(flask.session, response)
-    )
+    scope = ['https://www.googleapis.com/auth/userinfo.email']
+    client_id = application.config['GOOGLE_CONSUMER_KEY']
+    redirect_uri = 'http://klaxon-allanderek.c9users.io/login/google/'
+    oauth = requests_oauthlib.OAuth2Session(client_id, redirect_uri=redirect_uri, scope=scope)
 
-    # If there is no LoginResult object, the login procedure is still pending.
-    if result:
-        if result.error:
-            # TODO: Something better than this obviously
-            flask.flash(result.error)
+    state = request.args.get('state', None)
+    if not state:
+        authorization_url, state = oauth.authorization_url(
+            'https://accounts.google.com/o/oauth2/auth',
+            # access_type and approval_prompt are Google specific extra
+            # parameters.
+            access_type="offline", approval_prompt="force")
 
-        if result.user:
-            # We need to update the user to get more info.
-            result.user.update()
-            # We can now access result.user.name, result.user.email and result.user.id
-            account_link = AccountLink.query.filter_by(
-                external_user_id=result.user.id,
-                provider_name=provider_name).first()
-            # So probably we actually want to ask the user if they want to create
-            # an account or something like that. Alternatively we have login as
-            # separate from 'sign-up with' and here we would just error and say
-            # "No such account, would you like to sign-up, or perhaps you have
-            # already signed-up with a different provider?"
-            if account_link:
-                user = account_link.user
-            else:
-                user = User()
-                database.session.add(user)
-                account_link = AccountLink(
-                    external_user_id = result.user.id,
-                    provider_name = provider_name,
-                    user = user
-                    )
-                database.session.add(account_link)
-                database.session.commit()
-            flask.session['user.id'] = user.id
-        # TODO: If there is no result.user? I think that means that the person
-        # failed to login to the provider, or decided against it.
-        return redirect(default='frontpage')
+        return flask.redirect(authorization_url)
 
-    # Don't forget to return the response.
-    return response
+    flask.session['state'] = state
+    code = request.args.get('code')
+    oauth.fetch_token(
+        'https://accounts.google.com/o/oauth2/token',
+        code=code,
+        # Google specific extra parameter used for client
+        # authentication
+        client_secret=application.config['GOOGLE_CONSUMER_SECRET'])
+
+    profile_response = oauth.get('https://www.googleapis.com/oauth2/v1/userinfo')
+    # Fields should be:
+    # {'id', 'verified_email', 'given_name', 'link', 'gender', 'name',
+    # 'picture', 'family_name', 'email'}
+    profile = profile_response.json()
+    # TODO: Deal with errors/refusals that sort of thing.
+
+    account_link = AccountLink.query.filter_by(
+        external_user_id=profile['id'],
+        provider_name=provider_name).first()
+    # So probably we actually want to ask the user if they want to create
+    # an account or something like that. Alternatively we have login as
+    # separate from 'sign-up with' and here we would just error and say
+    # "No such account, would you like to sign-up, or perhaps you have
+    # already signed-up with a different provider?"
+    if account_link:
+        user = account_link.user
+    else:
+        user = User()
+        database.session.add(user)
+        account_link = AccountLink(
+            external_user_id = profile['id'],
+            provider_name = provider_name,
+            user = user
+            )
+        database.session.add(account_link)
+        database.session.commit()
+
+    flask.session['user.id'] = user.id
+    return redirect(default='frontpage')
 
 
 @application.template_test('plural')
@@ -193,6 +189,11 @@ def unauthorized_response(message=None):
     response = flask.jsonify({'message': message})
     response.status_code = 401
     return response
+
+@application.route("/logout/")
+def logout():
+    del flask.session['user.id']
+    return redirect(default='frontpage')
 
 @application.route("/")
 def frontpage():
