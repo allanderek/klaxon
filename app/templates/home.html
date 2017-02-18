@@ -101,13 +101,36 @@ function add_category(tabid){
 }
 
 
-function add_link(tabid, name, href){
+function delete_link(){
+    var $user_link = $(this);
+    var link_id = $user_link.attr('link');
+    console.log(`Attempting to delete link: ${link_id}`);
+    $.ajax({type: "POST",
+        url: "{{url_for('delete_link')}}",
+        data: { 'link_id': link_id },
+        success: function(data){
+          $user_link.remove();
+        },
+        error: function(data){
+          alert('Hmm, something failed deleting the link.');
+        }
+      });
+}
+
+function add_link(tabid, name, href, link_id){
     /* TODO: What if the category does not exist? */
     var $tab = $(`#${tabid}-links`);
     if ($tab.length < 1){
       $tab = add_category(tabid);
     }
-    $tab.find('.link-grid').append(`<div><a class="${tabid}" href="${href}">${name}</a></div>`);
+    var $link_grid = $tab.find('.link-grid');
+    var $new_link = $(`
+      <div class="user-link" link="${link_id}">
+        <a class="${tabid}" href="${href}">${name}</a>
+        <label class="delete-link">&times;</label>
+      </div>`);
+    $link_grid.append($new_link);
+    $new_link.click(delete_link);
 }
 
 function update_link(e){
@@ -122,7 +145,7 @@ function update_link(e){
           var category = $form.find('input[name="category"]').val();
           var name = $form.find('input[name="name"]').val();
           var address = $form.find('input[name="address"]').val();
-          add_link(category, name, address);
+          add_link(category, name, address, data['link_id']);
         },
         error: function(data){
           alert('Hmm, something failed.');
@@ -135,7 +158,7 @@ $(document).ready(function(){
     $('.update-link-button').click(update_link);
 
     {% for link in user.links.all() %}
-      add_link('{{link.category}}', '{{link.name}}', '{{link.address}}')
+      add_link('{{link.category}}', '{{link.name}}', '{{link.address}}', {{link.id}});
     {% endfor %}
 
     $('#link-tabs-container input[type="radio"]').first().click();

@@ -184,11 +184,19 @@ def get_current_user():
         return user
     return None
 
+def error_response(response_code, message):
+    """Used for producing an ajax response that indicates failure."""
+    response = flask.jsonify({'message': message})
+    response.status_code = response_code
+    return response
+
 def unauthorized_response(message=None):
     message = message or 'You must be logged-in to do that.'
-    response = flask.jsonify({'message': message})
-    response.status_code = 401
-    return response
+    return error_response(401, message)
+
+def bad_request_response(message=None):
+    message = message or 'The client made a bad request.'
+    return error_response(400, message)
 
 @application.route("/logout/")
 def logout():
@@ -230,6 +238,29 @@ def add_update_link():
     link.address = form.address.data
     database.session.commit()
     return flask.jsonify({'link_id': link.id})
+
+@application.route("/delete-link", methods=['POST'])
+def delete_link():
+    assert request.method == 'POST'
+    user = get_current_user()
+    # TODO: Test this is out, in particular I guess you could use two
+    # windows to test this out manually.
+    if not user:
+        return unauthorized_response()
+    if not 'link_id' in request.form:
+        return bad_request_response(message='The request contained no link id.')
+
+    # TODO: Should have .one() with a generic way to deal with an SQL error.
+    # Note that this also catches the case where someone is attempting to delete
+    # someone else's link.
+    link = UserLink.query.filter_by(id=request.form.get('link_id'), user_id=user.id).first()
+    if not link:
+        return bad_request_response(message='No such user link.')
+
+    database.session.delete(link)
+    database.session.commit()
+
+    return flask.jsonify({'success': True})
 
 @async
 def send_email_message_mailgun(email):
