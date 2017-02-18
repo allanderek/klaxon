@@ -19,14 +19,36 @@
     </div>
 </div>
 
-<form class="update-link-form">
-  <fieldset class="flex two">
-    <label><input name="category" type="text" placeholder="Category">Category</label>
-    <label><input name="name" type="text" placeholder="Name">Name</label>
-    <label><input name="address" type="url" placeholder="http://www.pythonanywhere.com">Address</label>
-  </fieldset>
-  <button class="update-link-button">Add</button>
-</form>
+
+<label for="add-link" class="button">Add Link</label>
+
+<div class="modal">
+  <input id="add-link" type="checkbox" />
+  <label for="add-link" class="overlay"></label>
+  <form class="update-link-form">
+    <div>
+      <header>
+        <h3>Add Link</h3>
+        <label for="add-link" class="close">&times;</label>
+      </header>
+      <section>
+        <fieldset>
+          <div class="flex two">
+            <label>Category<input name="category" type="text" placeholder="Category"></label>
+            <label>Name<input name="name" type="text" placeholder="Name"></label>
+          </div>
+          <div class="flex one">
+            <label>Address<input name="address" type="url" placeholder="http://www.pythonanywhere.com"></label>
+          </div>
+        </fieldset>
+      </section>
+      <footer>
+        <label for="add-link" class="button update-link-button">Add</label>
+        <label for="add-link" class="button dangerous">Cancel</label>
+      </footer>
+    </div>
+  </form>
+</div>
 
 
 {% endblock %}
@@ -35,12 +57,31 @@
 <script>
 /* global $ */
 
+function number_string(number){
+  switch(number){
+    case 1: return 'one';
+    case 2: return 'two';
+    case 3: return 'three';
+    case 4: return 'four';
+    case 5: return 'five';
+    case 6: return 'six';
+    case 7: return 'seven';
+    case 8: return 'eight';
+    case 9: return 'nine';
+    case 10: return 'ten';
+    case 11: return 'eleven';
+    case 12: return 'twelve';
+    default:
+      return "";
+  }
+}
+
 /* TODO: Everywhere we use 'tabid' we should probably be escaping stuff */
 function add_category(tabid){
   var tab_source = `<div id="${tabid}-links">
             <h2>${tabid}</h2>
-            <ul>
-            </ul>
+            <div class="flex four link-grid">
+            </div>
         </div>`;
   $('#link-tabs-container .row').append(tab_source);
   var tab_radio_source = `
@@ -49,24 +90,11 @@ function add_category(tabid){
   `;
   /* TODO: This should be before .row I think */
   $('#link-tabs-container .row').before(tab_radio_source);
-  $('#link-tabs-container').removeClass('one');
-  $('#link-tabs-container').removeClass('two');
-  $('#link-tabs-container').removeClass('three');
   var number_tabs = $('#link-tabs-container input[type="radio"]').length;
-  var number_class = "zero";
-  /* TODO: I'm sure there is a nicer way in Javascript to write this */
-  if (number_tabs == 1){
-    number_class = "one";
-  }
-  if (number_tabs == 2){
-    number_class = "two";
-  }
-  if (number_tabs == 3){
-    number_class = "three";
-  }
-  if (number_tabs == 4){
-    number_class = "four";
-  }
+  var number_class = number_string(number_tabs)
+
+  $('#link-tabs-container').removeClass();
+  $('#link-tabs-container').addClass('tabs');
   $('#link-tabs-container').addClass(number_class);
 
   return $(`#${tabid}-links`);
@@ -79,11 +107,13 @@ function add_link(tabid, name, href){
     if ($tab.length < 1){
       $tab = add_category(tabid);
     }
-    $tab.find('ul').append(`<li><a class="${tabid}" href="${href}">${name}</a></li>`);
+    $tab.find('.link-grid').append(`<div><a class="${tabid}" href="${href}">${name}</a></div>`);
 }
 
 function update_link(e){
-    e.preventDefault();
+    /* Note we are not doing e.preventDefault because it is not a form button
+    so the default is not to submit the form anyway. Doing 'e.preventDefault'
+    means that the modal does not get hidden. */
     var $form = $(this).closest('.update-link-form');
     $.ajax({type: "POST",
         url: "{{url_for('add_update_link')}}",
