@@ -2,18 +2,18 @@
 {% set active_page = "home" %}
 {% block lead_content %}
 
-<h1>Welcome to Klaxon</h1>
+<h1>Klaxon</h1>
 
-<p class="lead">Organise and lead your online self.</p>
+<p class="lead">Organise and lead your online self.
+{% if user %}
+Or <a href="{{url_for('logout')}}">Logout</a>.
+{% endif %}
+</p>
 {% endblock %}
 
 {% block main_content %}
 
-{% if user %}
-<h1>Your id is: {{ user.id }}</h1>
-<a href="{{url_for('logout')}}">Logout</a>
-{% endif %}
-
+<h1>Your Links</h1>
 <div id="link-tabs-container" class="tabs">
     <div class="row">
     </div>
