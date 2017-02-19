@@ -6,6 +6,11 @@
   .section-title, .category-title, #actions-container{
     text-align: center;
   }
+
+  .button-row{
+    flex-direction: row;
+    justify-content: space-between;
+  }
 </style>
 {% endblock page_css %}
 
@@ -41,9 +46,9 @@
           </div>
           <label class="label">Address<input class="input" name="address" type="url" placeholder="http://www.pythonanywhere.com"></label>
       </section>
-      <footer class="modal-card-foot container">
+      <footer class="modal-card-foot button-row">
         <button class="button is-success update-link-button">Add</button>
-        <a class="button is-danger close-modal is-pulled-right">Cancel</a>
+        <a class="button is-danger close-modal">Cancel</a>
       </footer>
     </form>
   </div>
