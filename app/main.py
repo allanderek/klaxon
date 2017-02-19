@@ -40,11 +40,14 @@ class Configuration(object):
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     ADMINS = ['allan.clark@gmail.com']
     DEBUG=True
+    LOG_LEVEL=logging.DEBUG
 
 application = flask.Flask(__name__)
 application.config.from_object(Configuration)
 application.config.from_pyfile('private/settings.py')
 
+logger = logging.getLogger()
+logger.setLevel(application.config['LOG_LEVEL'])
 
 database = SQLAlchemy(application)
 
