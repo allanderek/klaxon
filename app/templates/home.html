@@ -3,7 +3,7 @@
 
 {% block page_css %}
 <style>
-  .section-title, .category-title{
+  .section-title, .category-title, #actions-container{
     text-align: center;
   }
 </style>
@@ -21,19 +21,20 @@
 <div id="link-categories" class="columns">
 </div>
 
+<div id="actions-container" class="container">
+  <label class="button show-modal is-success" target="#add-link-modal">Add Link</label>
+</div>
 
-<label for="add-link" class="button">Add Link</label>
 
-<div class="modal">
-  <input id="add-link" type="checkbox" />
-  <label for="add-link" class="overlay"></label>
-  <form class="update-link-form">
-    <div>
-      <header>
-        <h3>Add Link</h3>
-        <label for="add-link" class="close">&times;</label>
+<div id="add-link-modal" class="modal">
+  <div class="modal-background"></div>
+  <div class="modal-card">
+    <form class="update-link-form">
+      <header class="modal-card-head">
+        <p class="modal-card-title">Add Link</p>
+        <a class="delete close-modal"></a>
       </header>
-      <section>
+      <section class="modal-card-body">
         <fieldset>
           <div class="flex two">
             <label>Category<input name="category" type="text" placeholder="Category"></label>
@@ -44,14 +45,13 @@
           </div>
         </fieldset>
       </section>
-      <footer>
-        <label for="add-link" class="button update-link-button">Add</label>
-        <label for="add-link" class="button dangerous">Cancel</label>
+      <footer class="modal-card-foot">
+        <a class="button is-success">Add</a>
+        <a class="button is-danger close-modal">Cancel</a>
       </footer>
-    </div>
-  </form>
+    </form>
+  </div>
 </div>
-
 
 {% endblock %}
 
@@ -133,6 +133,17 @@ function delete_link(){
 
 $(document).ready(function(){
     $('.update-link-button').click(update_link);
+
+    $('.show-modal').click(function(){
+      var $this = $(this);
+      var target_selector = $this.attr('target');
+      $(target_selector).addClass('is-active');
+    });
+
+    $('.close-modal').click(function(){
+      var $modal = $(this).closest('.modal');
+      $modal.removeClass('is-active');
+    });
 
     {% for link in user.links.all() %}
       add_link('{{link.category}}', '{{link.name}}', '{{link.address}}', {{link.id}});
