@@ -1,21 +1,23 @@
 {% extends "base.html" %}
 {% set active_page = "home" %}
+
+{% block page_css %}
+<style>
+  .section-title, .category-title{
+    text-align: center;
+  }
+</style>
+{% endblock page_css %}
+
 {% block lead_content %}
-
-<h1>Klaxon</h1>
-
-<p class="lead">Organise and lead your online self.
-{% if user %}
-Or <a href="{{url_for('logout')}}">Logout</a>.
-{% endif %}
-</p>
-{% endblock %}
-
+  {% if user %}
+    <a href="{{url_for('logout')}}">Logout</a>.
+  {% endif %}
+{% endblock lead_content %}
 {% block main_content %}
 
-<h1>Test Area</h1>
 
-<h1>Your Links</h1>
+<h2 class="title section-title">Your Links</h2>
 <div id="link-categories" class="columns">
 </div>
 
@@ -57,26 +59,7 @@ Or <a href="{{url_for('logout')}}">Logout</a>.
 <script>
 /* global $ */
 
-function number_string(number){
-  switch(number){
-    case 1: return 'one';
-    case 2: return 'two';
-    case 3: return 'three';
-    case 4: return 'four';
-    case 5: return 'five';
-    case 6: return 'six';
-    case 7: return 'seven';
-    case 8: return 'eight';
-    case 9: return 'nine';
-    case 10: return 'ten';
-    case 11: return 'eleven';
-    case 12: return 'twelve';
-    default:
-      return "";
-  }
-}
-
-/* TODO: Everywhere we use 'tabid' we should probably be escaping stuff */
+/* TODO: Everywhere we use 'catid' we should probably be escaping stuff */
 function find_or_add_category(catid){
     var $category = $(`#${catid}-links`);
     if ($category.length !== 0){
@@ -85,8 +68,10 @@ function find_or_add_category(catid){
 
     var $new_category_column = $(`
       <div class="column" id="${catid}-links">
-        <h2>${catid}</h2>
-        <ul class="link-grid"></ul>
+        <h2 class="subtitle category-title">${catid}</h2>
+        <table class="table is-stripped">
+          <tbody class="link-grid"></tbody>
+        </table>
       </div>
     `);
     $('#link-categories').append($new_category_column);
@@ -98,10 +83,10 @@ function add_link(catid, name, href, link_id){
     var $category_column = find_or_add_category(catid);
     var $link_grid = $category_column.find('.link-grid');
     var $new_link = $(`
-      <li class="user-link" link="${link_id}">
-        <a class="${catid}" href="${href}">${name}</a>
-        <label class="delete-link">&times;</label>
-      </li>`);
+      <tr> class="user-link" link="${link_id}">
+        <td><a class="${catid}" href="${href}">${name}</a></td>
+        <td><a class="delete delete-link"></a></td>
+      </tr>`);
     $link_grid.append($new_link);
     $new_link.click(delete_link);
 }
