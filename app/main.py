@@ -211,7 +211,6 @@ def logout():
 
 @application.route("/")
 def frontpage():
-    flask.flash('Just a test message to the user.')
     user = get_current_user()
     if user:
         return render_template('home.html', user=user)
