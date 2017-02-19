@@ -142,17 +142,6 @@ function delete_link(){
 $(document).ready(function(){
     $('.update-link-button').click(update_link);
 
-    $('.show-modal').click(function(){
-      var $this = $(this);
-      var target_selector = $this.attr('target');
-      $(target_selector).addClass('is-active');
-    });
-
-    $('.close-modal').click(function(){
-      var $modal = $(this).closest('.modal');
-      $modal.removeClass('is-active');
-    });
-
     {% for link in user.links.all() %}
       add_link('{{link.category}}', '{{link.name}}', '{{link.address}}', {{link.id}});
     {% endfor %}

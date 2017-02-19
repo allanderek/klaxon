@@ -5,6 +5,7 @@ events, unread important emails, some rss feeds to read, and a
 twitter notification'. Something like that, not really sure how
 will all work in the end. If at all.
 """
+import logging
 
 import requests
 import requests_oauthlib
@@ -198,6 +199,11 @@ def bad_request_response(message=None):
     message = message or 'The client made a bad request.'
     return error_response(400, message)
 
+def success_response(results=None):
+    results = results or {}
+    results['success'] = True
+    return flask.jsonify(results)
+
 @application.route("/logout/")
 def logout():
     del flask.session['user.id']
@@ -205,6 +211,7 @@ def logout():
 
 @application.route("/")
 def frontpage():
+    flask.flash('Just a test message to the user.')
     user = get_current_user()
     if user:
         return render_template('home.html', user=user)
@@ -260,7 +267,7 @@ def delete_link():
     database.session.delete(link)
     database.session.commit()
 
-    return flask.jsonify({'success': True})
+    return success_response()
 
 @async
 def send_email_message_mailgun(email):
@@ -289,6 +296,14 @@ class Email(object):
         self.sender_name = sender_name
         self.recipients = recipients
 
+    def log_email_message(self):
+        logging.debug("------ Email message ------")
+        logging.debug("From: {}".format(self.sender_name))
+        logging.debug("To: {}".format(self.recipients))
+        logging.debug("Subject: {}".format(self.subject))
+        logging.debug("Message: {}".format(self.body))
+        logging.debug("------- End email message -----")
+
 
 def send_email_message(email):
     # We don't want to actually send the message every time we're testing.
@@ -297,8 +312,10 @@ def send_email_message(email):
     # because this code will be executed in a different process to the
     # test code. We could have some kind of test-only route that returns the
     # list of emails sent as a JSON object or something.
-    if not application.config['TESTING']:
+    if not application.config['TESTING'] and not application.config['DEBUG']:
         send_email_message_mailgun(email)
+    else:
+        email.log_email_message()
 
 
 class FeedbackForm(flask_wtf.FlaskForm):
@@ -311,10 +328,9 @@ class FeedbackForm(flask_wtf.FlaskForm):
 def give_feedback():
     form = FeedbackForm()
     if not form.validate_on_submit():
-        message = ('Feedback form has not been validated.'
-                   'Sorry it was probably my fault')
-        flask.flash(message, 'error')
-        return flask.redirect(redirect_url())
+        message = """Feedback form has not been validated.
+            Sorry it was probably my fault"""
+        return bad_request_response(message=message)
     feedback_email = form.feedback_email.data.lstrip()
     feedback_name = form.feedback_name.data.lstrip()
     feedback_content = form.feedback_text.data
@@ -329,8 +345,7 @@ def give_feedback():
     """.format(feedback_name, feedback_email, feedback_content)
     email = Email(subject, message_body, sender_name, recipients)
     send_email_message(email)
-    flask.flash("Thanks for your feedback!", 'info')
-    return flask.redirect(redirect_url())
+    return success_response()
 
 # Now for some testing.
 import flask_testing

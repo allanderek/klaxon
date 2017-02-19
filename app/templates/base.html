@@ -22,18 +22,7 @@
   <div class="lead-content">
     <h1 class="title">Klaxon</h1>
 
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        {% for category, message in messages %}
-          {# TODO: We have to actually make the button work #}
-          <div class="notification {{category}}">
-            <button class="delete"></button>
-            {{message}}
-          </div>
-        {% endfor %}
-      {% endif %}
-    {% endwith %}
-
+    <div id="messages-to-the-user"></div>
     {% block lead_content %}
     {% endblock lead_content %}
   </div><!-- /.lead-content -->
@@ -42,28 +31,119 @@
     {% block main_content %}
     {% endblock main_content %}
 
-    <div id="feedback-area" class="main-column">
-      <h2>Feedback</h2>
-      <p>
-        We are always happy to receive any feedback both positive and negative.
-        If you wish you can provide your name and/or email. Neither is required,
-        if you do not provide an email we will have no way to respond to your
-        comment (which you may not want anyway).
-      </p>
-      <form id="give-feedback" class="feedback-controls" method="POST"
-            action="{{ url_for('give_feedback') }}">
-        <div class="form-group">
+<div class="container">
+  <label class="button show-modal is-success" target="#give-feedback-modal">Give Feedback</label>
+</div>
+
+
+<div id="give-feedback-modal" class="modal">
+  <div class="modal-background"></div>
+  <div class="modal-card">
+    <form class="give-feedback-form">
+      <header class="modal-card-head">
+        <p class="modal-card-title">Give Feedback</p>
+        <a class="delete close-modal"></a>
+      </header>
+      <section class="modal-card-body">
+        <p>
+          We are always happy to receive any feedback both positive and negative.
+          If you wish you can provide your name and/or email. Neither is required,
+          if you do not provide an email we will have no way to respond to your
+          comment (which you may not want anyway).
+        </p>
+        <hr>
           {{ feedback_form.hidden_tag() }}
-          {{ feedback_form.feedback_name(placeholder="Name: Not required", class="form-control") }}
-          {{ feedback_form.feedback_email(placeholder="Email: Not required, but I won't be able to reply.",  class="form-control") }}
-          {{ feedback_form.feedback_text(placeholder="What do you wish to suggest/praise/complain about?", class="form-control") }}
-          <button type="submit" class="form-control btn btn-default"
-                  id="feedback_submit_button" name="feedback_submit_button">Provide Feedback</button>
-        </div><!-- /.form-group -->
-      </form>
-    </div><!-- /#.feedback-area -->
+          <div class="columns">
+            <label class="label column is-half">Name
+              {{ feedback_form.feedback_name(placeholder="Name: Not required", class="input", type="text") }}
+            </label>
+            <label class="label column is-half">Email
+              {{ feedback_form.feedback_email(placeholder="Email: Not required", class="input", type="email") }}
+            </label>
+          </div>
+
+          <label class="label">Message
+            {{ feedback_form.feedback_text(placeholder="What do you wish to suggest/praise/complain about?", class="textarea") }}
+          </label>
+
+      </section>
+      <footer class="modal-card-foot button-row">
+        <button class="button is-success" id="give-feedback-button">Submit</button>
+        <a class="button is-danger close-modal">Cancel</a>
+      </footer>
+    </form>
+  </div>
+</div>
+
 </div><!-- /.container -->
 
+
+<script>
+/* global $ */
+
+function message_user(message, category){
+  console.log(`Messaging user(${category}): ${message}`)
+
+  var $notification = $(`
+          <div class="notification ${category}">
+            <button class="delete"></button>
+            ${message}
+          </div>`);
+
+  $('#messages-to-the-user').append($notification);
+  $notification.find('button.delete').click(function(){
+    $notification.remove();
+  });
+}
+
+function give_feedback(e){
+    e.preventDefault();
+    var $submit_button = $(this);
+    $submit_button.addClass('is-loading');
+    var $form = $submit_button.closest('form');
+    $.ajax({type: "POST",
+        url: "{{url_for('give_feedback')}}",
+        data: $form.serialize(),
+        success: function(data){
+          $submit_button.removeClass('is-loading');
+          $submit_button.closest('.modal').removeClass('is-active');
+          message_user('Thank you for your feedback.');
+        },
+        error: function(data){
+          $submit_button.removeClass('is-loading');
+          /* TODO: Be much more careful about this, checking if message is even
+          in the data for example. */
+          message_user(data['message']);
+        }
+      });
+}
+
+$(document).ready(function(){
+    $('.show-modal').click(function(){
+      var $this = $(this);
+      var target_selector = $this.attr('target');
+      $(target_selector).addClass('is-active');
+    });
+
+    $('.close-modal').click(function(){
+      var $modal = $(this).closest('.modal');
+      $modal.removeClass('is-active');
+    });
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          {# Not sure if this quite works because what if the message (or category)
+          has a double quote in it? I'm pretty sure jinja2 has some way to cope
+          with that, but I'm not sure it's enabled by default. #}
+          message_user("{{message}}", "{{category}}");
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    $('#give-feedback-button').click(give_feedback);
+});
+</script>
 {% block page_scripts %}
 {% endblock page_scripts%}
 </body>
