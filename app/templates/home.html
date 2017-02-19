@@ -46,7 +46,7 @@
         </fieldset>
       </section>
       <footer class="modal-card-foot">
-        <a class="button is-success">Add</a>
+        <a class="button is-success update-link-button">Add</a>
         <a class="button is-danger close-modal">Cancel</a>
       </footer>
     </form>
@@ -92,23 +92,23 @@ function add_link(catid, name, href, link_id){
 }
 
 function update_link(e){
-    /* Note we are not doing e.preventDefault because it is not a form button
-    so the default is not to submit the form anyway. Doing 'e.preventDefault'
-    means that the modal does not get hidden.
-    TODO: I think this means that pressing the Return/Enter key won't submit
-    the 'modal' dialog. Correct?
-    */
-    var $form = $(this).closest('.update-link-form');
+    e.preventDefault();
+    var $update_button = $(this);
+    $update_button.addClass('is-loading');
+    var $form = $update_button.closest('.update-link-form');
     $.ajax({type: "POST",
         url: "{{url_for('add_update_link')}}",
         data: $form.serialize(),
         success: function(data){
+          $update_button.removeClass('is-loading');
           var category = $form.find('input[name="category"]').val();
           var name = $form.find('input[name="name"]').val();
           var address = $form.find('input[name="address"]').val();
           add_link(category, name, address, data['link_id']);
+          $update_button.closest('.modal').removeClass('is-active');
         },
         error: function(data){
+          $update_button.removeClass('is-loading');
           alert('Hmm, something failed.');
         }
       });
