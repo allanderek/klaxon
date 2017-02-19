@@ -13,10 +13,13 @@ Or <a href="{{url_for('logout')}}">Logout</a>.
 
 {% block main_content %}
 
+<h1>Test Area</h1>
+
 <h1>Your Links</h1>
-<div id="link-tabs-container" class="tabs">
-    <div class="row">
-    </div>
+<div id="link-tabs-container">
+  <div class="tabs is_centered is_large">
+    <ul></ul>
+  </div>
 </div>
 
 
@@ -78,24 +81,21 @@ function number_string(number){
 
 /* TODO: Everywhere we use 'tabid' we should probably be escaping stuff */
 function add_category(tabid){
-  var tab_source = `<div id="${tabid}-links">
-            <h2>${tabid}</h2>
-            <div class="flex four link-grid">
-            </div>
-        </div>`;
-  $('#link-tabs-container .row').append(tab_source);
-  var tab_radio_source = `
-    <input id='${tabid}-tab' type='radio' name='tabgroupB' />
-    <label class="pseudo button toggle" for="${tabid}-tab">${tabid}</label>
-  `;
-  /* TODO: This should be before .row I think */
-  $('#link-tabs-container .row').before(tab_radio_source);
-  var number_tabs = $('#link-tabs-container input[type="radio"]').length;
-  var number_class = number_string(number_tabs)
+  var $new_tab = $(`<li class="tab-selector"><a id='${tabid}-tab'>${tabid}</a></li>`);
+  $('#link-tabs-container .tabs ul').append($new_tab);
 
-  $('#link-tabs-container').removeClass();
-  $('#link-tabs-container').addClass('tabs');
-  $('#link-tabs-container').addClass(number_class);
+  var $new_tab_content = $(`<div class="tab-content" id="${tabid}-links">
+            <h2>${tabid}</h2>
+              <ul class="link-grid"></ul>
+        </div>`);
+  $('#link-tabs-container').append($new_tab_content);
+
+  $new_tab.click(function(){
+    $('#link-tabs-container .tab-content').hide();
+    $new_tab_content.show();
+  });
+
+  $new_tab.click();
 
   return $(`#${tabid}-links`);
 }
@@ -125,10 +125,10 @@ function add_link(tabid, name, href, link_id){
     }
     var $link_grid = $tab.find('.link-grid');
     var $new_link = $(`
-      <div class="user-link" link="${link_id}">
+      <li class="user-link" link="${link_id}">
         <a class="${tabid}" href="${href}">${name}</a>
         <label class="delete-link">&times;</label>
-      </div>`);
+      </li>`);
     $link_grid.append($new_link);
     $new_link.click(delete_link);
 }
