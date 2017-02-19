@@ -16,10 +16,7 @@ Or <a href="{{url_for('logout')}}">Logout</a>.
 <h1>Test Area</h1>
 
 <h1>Your Links</h1>
-<div id="link-tabs-container">
-  <div class="tabs is_centered is_large">
-    <ul></ul>
-  </div>
+<div id="link-categories" class="columns">
 </div>
 
 
@@ -80,24 +77,56 @@ function number_string(number){
 }
 
 /* TODO: Everywhere we use 'tabid' we should probably be escaping stuff */
-function add_category(tabid){
-  var $new_tab = $(`<li class="tab-selector"><a id='${tabid}-tab'>${tabid}</a></li>`);
-  $('#link-tabs-container .tabs ul').append($new_tab);
+function find_or_add_category(catid){
+    var $category = $(`#${catid}-links`);
+    if ($category.length !== 0){
+      return $category
+    }
 
-  var $new_tab_content = $(`<div class="tab-content" id="${tabid}-links">
-            <h2>${tabid}</h2>
-              <ul class="link-grid"></ul>
-        </div>`);
-  $('#link-tabs-container').append($new_tab_content);
+    var $new_category_column = $(`
+      <div class="column" id="${catid}-links">
+        <h2>${catid}</h2>
+        <ul class="link-grid"></ul>
+      </div>
+    `);
+    $('#link-categories').append($new_category_column);
 
-  $new_tab.click(function(){
-    $('#link-tabs-container .tab-content').hide();
-    $new_tab_content.show();
-  });
+    return $new_category_column;
+}
 
-  $new_tab.click();
+function add_link(catid, name, href, link_id){
+    var $category_column = find_or_add_category(catid);
+    var $link_grid = $category_column.find('.link-grid');
+    var $new_link = $(`
+      <li class="user-link" link="${link_id}">
+        <a class="${catid}" href="${href}">${name}</a>
+        <label class="delete-link">&times;</label>
+      </li>`);
+    $link_grid.append($new_link);
+    $new_link.click(delete_link);
+}
 
-  return $(`#${tabid}-links`);
+function update_link(e){
+    /* Note we are not doing e.preventDefault because it is not a form button
+    so the default is not to submit the form anyway. Doing 'e.preventDefault'
+    means that the modal does not get hidden.
+    TODO: I think this means that pressing the Return/Enter key won't submit
+    the 'modal' dialog. Correct?
+    */
+    var $form = $(this).closest('.update-link-form');
+    $.ajax({type: "POST",
+        url: "{{url_for('add_update_link')}}",
+        data: $form.serialize(),
+        success: function(data){
+          var category = $form.find('input[name="category"]').val();
+          var name = $form.find('input[name="name"]').val();
+          var address = $form.find('input[name="address"]').val();
+          add_link(category, name, address, data['link_id']);
+        },
+        error: function(data){
+          alert('Hmm, something failed.');
+        }
+      });
 }
 
 
@@ -117,51 +146,12 @@ function delete_link(){
       });
 }
 
-function add_link(tabid, name, href, link_id){
-    /* TODO: What if the category does not exist? */
-    var $tab = $(`#${tabid}-links`);
-    if ($tab.length < 1){
-      $tab = add_category(tabid);
-    }
-    var $link_grid = $tab.find('.link-grid');
-    var $new_link = $(`
-      <li class="user-link" link="${link_id}">
-        <a class="${tabid}" href="${href}">${name}</a>
-        <label class="delete-link">&times;</label>
-      </li>`);
-    $link_grid.append($new_link);
-    $new_link.click(delete_link);
-}
-
-function update_link(e){
-    /* Note we are not doing e.preventDefault because it is not a form button
-    so the default is not to submit the form anyway. Doing 'e.preventDefault'
-    means that the modal does not get hidden. */
-    var $form = $(this).closest('.update-link-form');
-    $.ajax({type: "POST",
-        url: "{{url_for('add_update_link')}}",
-        data: $form.serialize(),
-        success: function(data){
-          var category = $form.find('input[name="category"]').val();
-          var name = $form.find('input[name="name"]').val();
-          var address = $form.find('input[name="address"]').val();
-          add_link(category, name, address, data['link_id']);
-        },
-        error: function(data){
-          alert('Hmm, something failed.');
-        }
-      });
-}
-
-
 $(document).ready(function(){
     $('.update-link-button').click(update_link);
 
     {% for link in user.links.all() %}
       add_link('{{link.category}}', '{{link.name}}', '{{link.address}}', {{link.id}});
     {% endfor %}
-
-    $('#link-tabs-container input[type="radio"]').first().click();
 });
 </script>
 {% endblock page_scripts%}
