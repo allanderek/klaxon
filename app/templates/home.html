@@ -35,19 +35,15 @@
         <a class="delete close-modal"></a>
       </header>
       <section class="modal-card-body">
-        <fieldset>
-          <div class="flex two">
-            <label>Category<input name="category" type="text" placeholder="Category"></label>
-            <label>Name<input name="name" type="text" placeholder="Name"></label>
+          <div class="columns">
+            <label class="label column is-half">Category<input class="input" name="category" type="text" placeholder="Category"></label>
+            <label class="label column is-half">Name<input class="input" name="name" type="text" placeholder="Name"></label>
           </div>
-          <div class="flex one">
-            <label>Address<input name="address" type="url" placeholder="http://www.pythonanywhere.com"></label>
-          </div>
-        </fieldset>
+          <label class="label">Address<input class="input" name="address" type="url" placeholder="http://www.pythonanywhere.com"></label>
       </section>
-      <footer class="modal-card-foot">
-        <a class="button is-success update-link-button">Add</a>
-        <a class="button is-danger close-modal">Cancel</a>
+      <footer class="modal-card-foot container">
+        <button class="button is-success update-link-button">Add</button>
+        <a class="button is-danger close-modal is-pulled-right">Cancel</a>
       </footer>
     </form>
   </div>
@@ -83,7 +79,7 @@ function add_link(catid, name, href, link_id){
     var $category_column = find_or_add_category(catid);
     var $link_grid = $category_column.find('.link-grid');
     var $new_link = $(`
-      <tr> class="user-link" link="${link_id}">
+      <tr class="user-link" link="${link_id}">
         <td><a class="${catid}-link" href="${href}">${name}</a></td>
         <td><a class="delete delete-link"></a></td>
       </tr>`);
@@ -116,16 +112,23 @@ function update_link(e){
 
 
 function delete_link(){
-    var $user_link = $(this);
+    var $delete_button = $(this);
+    /* TODO: The 'is-loading' does not work on a .delete element. */
+    $delete_button.addClass('is-loading');
+    var $user_link = $delete_button.closest('.user-link');
     var link_id = $user_link.attr('link');
     console.log(`Attempting to delete link: ${link_id}`);
     $.ajax({type: "POST",
         url: "{{url_for('delete_link')}}",
         data: { 'link_id': link_id },
         success: function(data){
+          /* Removing the class here is a bit redundant since we're removing
+          the whole thing anyway. */
+          $delete_button.removeClass('is-loading');
           $user_link.remove();
         },
         error: function(data){
+          $delete_button.removeClass('is-loading');
           alert('Hmm, something failed deleting the link.');
         }
       });
