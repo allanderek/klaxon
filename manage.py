@@ -144,7 +144,10 @@ def run_command(command):
     result = os.system(command)
     return 0 if result == 0 else 1
 
-
+@manager.command
+def test():
+    result = run_command('py.test --cov=app --fulltrace app/main.py')
+    return result or run_command('coverage html')
 
 if __name__ == "__main__":
     manager.run()

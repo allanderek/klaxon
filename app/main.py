@@ -35,6 +35,7 @@ def generated_file_path(additional_path):
 class Configuration(object):
     SECRET_KEY = b'\xa0a\xd7nCN\x84\xd4Hn\xd5*\xa2\x89z\xdb\xf8w\xbd\xab)\xd3O\xd1'  # noqa
     LIVE_SERVER_PORT = 5000
+    TEST_SERVER_PORT = 5001
     database_file = generated_file_path('play.db')
     SQLALCHEMY_DATABASE_URI = 'sqlite:///' + database_file
     SQLALCHEMY_TRACK_MODIFICATIONS = False
@@ -209,7 +210,8 @@ def success_response(results=None):
 
 @application.route("/logout/")
 def logout():
-    del flask.session['user.id']
+    if 'user.id' in flask.session:
+        del flask.session['user.id']
     return redirect(default='frontpage')
 
 @application.route("/")
@@ -350,104 +352,96 @@ def give_feedback():
     return success_response()
 
 # Now for some testing.
-import flask_testing
-import urllib
 from selenium import webdriver
-from selenium.common.exceptions import NoSuchElementException
+from selenium.webdriver.common.action_chains import ActionChains
 import pytest
+# Currently just used for the temporary hack to quit the phantomjs process
+# see below in quit_driver.
+import signal
 
+import threading
 
-class BasicFunctionalityTest(flask_testing.LiveServerTestCase):
+import wsgiref.simple_server
 
-    def create_app(self):
+class ServerThread(threading.Thread):
+    def setup(self):
         application.config['TESTING'] = True
-        # Default port is 5000
-        application.config['LIVESERVER_PORT'] = 8943
+        set_database(database_filename='test.db', reset_database=True)
+        self.port = application.config['TEST_SERVER_PORT']
 
-        # Don't use the production database but a temporary test
-        # database.
-        application.config['SQLALCHEMY_DATABASE_URI'] = "sqlite:///test.db"
+    def run(self):
+        self.httpd = wsgiref.simple_server.make_server('localhost', self.port, application)
+        self.httpd.serve_forever()
 
-        self.driver = webdriver.PhantomJS()
-        self.driver.set_window_size(1120, 550)
-        return application
+    def stop(self):
+        self.httpd.shutdown()
 
-    def get_url(self, local_url):
-        return "/".join([self.get_server_url(), local_url])
+class BrowserClient(object):
+    """Interacts with a running instance of the application via animating a
+    browser."""
+    def __init__(self, browser="phantom"):
+        """Note, dbfile is ignored here, this is really only for with AppClient"""
+        driver_class = {
+            'phantom': webdriver.PhantomJS,
+            'chrome': webdriver.Chrome,
+            'firefox': webdriver.Firefox
+            }.get(browser)
+        self.driver = driver_class()
+        self.driver.set_window_size(1200, 760)
 
-    def assertCssSelectorExists(self, css_selector):
-        """ Asserts that there is an element that matches the given
-        css selector."""
-        # We do not actually need to do anything special here, if the
-        # element does not exist we fill fail with a NoSuchElementException
-        # however we wrap this up in a pytest.fail because the error message
-        # is then a bit nicer to read.
-        try:
-            self.driver.find_element_by_css_selector(css_selector)
-        except NoSuchElementException:
-            pytest.fail("Element {0} not found!".format(css_selector))
 
-    def assertCssSelectorNotExists(self, css_selector):
-        """ Asserts that no element that matches the given css selector
-        is present."""
-        with pytest.raises(NoSuchElementException):
-            self.driver.find_element_by_css_selector(css_selector)
-
-    def fill_in_and_submit_form(self, fields, submit):
-        for field_css, field_text in fields.items():
-            self.fill_in_text_input_by_css(field_css, field_text)
-        self.click_element_with_css(submit)
-
-    def click_element_with_css(self, selector):
-        element = self.driver.find_element_by_css_selector(selector)
-        element.click()
-
-    def fill_in_text_input_by_css(self, input_css, input_text):
-        input_element = self.driver.find_element_by_css_selector(input_css)
-        input_element.send_keys(input_text)
-
-    def check_flashed_message(self, message, category):
-        category = flash_bootstrap_category(category)
-        selector = 'div.alert.alert-{0}'.format(category)
-        elements = self.driver.find_elements_by_css_selector(selector)
-        if category == 'error':
-            print("error: messages:")
-            for e in elements:
-                print(e.text)
-        self.assertTrue(any(message in e.text for e in elements))
-
-    def open_new_window(self, url):
-        script = "$(window.open('{0}'))".format(url)
-        self.driver.execute_script(script)
-
-    def test_feedback(self):
-        self.driver.get(self.get_url('/'))
-        feedback = {'#feedback_email': "example_user@example.com",
-                    '#feedback_name': "Avid User",
-                    '#feedback_text': "I hope your feedback form works."}
-        self.fill_in_and_submit_form(feedback, '#feedback_submit_button')
-        self.check_flashed_message("Thanks for your feedback!", 'info')
-
-    def test_server_is_up_and_running(self):
-        response = urllib.request.urlopen(self.get_server_url())
-        assert response.code == 200
-
-    def test_frontpage_links(self):
-        """ Just make sure we can go to the front page and that
-        the main menu is there and has at least one item."""
-        self.driver.get(self.get_server_url())
-        main_menu_css = 'nav .container #navbar ul li'
-        self.assertCssSelectorExists(main_menu_css)
-
-    def setUp(self):
-        database.create_all()
-        database.session.commit()
-
-    def tearDown(self):
+    def finalise(self):
+        self.driver.close()
+        # A bit of hack this but currently there is some bug I believe in
+        # the phantomjs code rather than selenium, but in any case it means that
+        # the phantomjs process is not being killed so we do so explicitly here
+        # for the time being. Obviously we can remove this when that bug is
+        # fixed. See: https://github.com/SeleniumHQ/selenium/issues/767
+        self.driver.service.process.send_signal(signal.SIGTERM)
         self.driver.quit()
-        database.session.remove()
-        database.drop_all()
 
 
-if __name__ == "__main__":
-    application.run(debug=True, threaded=True)
+    def log_current_page(self, message=None, output_basename=None):
+        content = self.driver.page_source
+        if message:
+            logging.info(message)
+        # This is frequently what we really care about so I also output it
+        # here as well to make it convenient to inspect (with highlighting).
+        basename = output_basename or 'log-current-page'
+        file_name = generated_file_path(basename + '.html')
+        with open(file_name, 'w') as outfile:
+            if message:
+                outfile.write("<!-- {} --> ".format(message))
+            outfile.write(content)
+        filename = generated_file_path(basename + '.png')
+        self.driver.save_screenshot(filename)
+
+# TODO: Ultimately we'll need a fixture so that we can have multiple
+# test functions that all use the same server thread and possibly the same
+# browser client.
+def make_url(endpoint, **kwargs):
+    with application.app_context():
+        return flask.url_for(endpoint, **kwargs)
+
+def test_server():
+    server_thread = ServerThread()
+    # First start the server
+    server_thread.setup()
+    server_thread.start()
+
+    client = BrowserClient()
+    driver = client.driver
+
+    try:
+        port = application.config['TEST_SERVER_PORT']
+        application.config['SERVER_NAME'] = 'localhost:{}'.format(port)
+
+        # Start off by logging out, so we ensure that we are currently logged
+        # out, in order to start the rest of the test.
+        driver.get(make_url('logout'))
+        assert 'Klaxon' in driver.page_source
+
+    finally:
+        client.finalise()
+        server_thread.stop()
+        server_thread.join()
