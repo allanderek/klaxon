@@ -476,6 +476,31 @@ class BrowserClient(object):
         condition = expected_conditions.presence_of_element_located(element_spec)
         return self.wait_for_condition(condition, **kwargs)
 
+    def css_exists(self, css_selector):
+        """ Asserts that there is an element that matches the given
+        css selector."""
+        # We do not actually need to do anything special here, if the
+        # element does not exist we fill fail with a NoSuchElementException
+        # however we wrap this up in a pytest.fail because the error message
+        # is then a bit nicer to read.
+        try:
+            self.wait_for_element(css_selector)
+        except NoSuchElementException:
+            self.log_current_page()
+            pytest.fail('Element "{0}" not found! Current page logged.'.format(css_selector))
+
+    def check_css_selector_doesnt_exist(self, css_selector):
+        """Assert that there is no element that matches the given css selector.
+        Note that we do not use 'wait_for_element' since in that case a successful
+        test woult take the whole timeout time."""
+        try:
+            self.driver.find_element_by_css_selector(css_selector)
+        except NoSuchElementException:
+            return
+        self.log_current_page()
+        pytest.fail("""Element "{0}" was found on page when expected not to be
+        present. Current page logged.""".format(css_selector))
+
     def click(self, selector, **kwargs):
         """ Click an element given by the given selector. Passes its kwargs on
         to wait for element, so in particular accepts 'no_fail' which means the
@@ -501,13 +526,22 @@ class BrowserClient(object):
             pytest.fail(message + ": " + e.msg)
 
 
-# TODO: Ultimately we'll need a fixture so that we can have multiple
-# test functions that all use the same server thread and possibly the same
-# browser client.
 def make_url(endpoint, **kwargs):
     with application.app_context():
         return flask.url_for(endpoint, **kwargs)
 
+def google_login_user(client, google_id):
+    mock_do_google_login = mock.create_autospec(
+        do_google_login,
+        side_effect=lambda : google_account_link_and_login(google_id))
+    with mock.patch('main.do_google_login', mock_do_google_login):
+        client.click('#google-login-link')
+        client.css_exists('#logout-link')
+
+
+# TODO: Ultimately we'll need a fixture so that we can have multiple
+# test functions that all use the same server thread and possibly the same
+# browser client.
 def test_server():
     server_thread = ServerThread()
     # First start the server
@@ -526,13 +560,7 @@ def test_server():
         assert 'Klaxon' in client.page_source
 
         test_google_id = '1234'
-        mock_do_google_login = mock.create_autospec(
-            do_google_login,
-            side_effect=lambda : google_account_link_and_login(test_google_id))
-        with mock.patch('main.do_google_login', mock_do_google_login):
-            client.click('#google-login-link')
-        client.log_current_page()
-
+        google_login_user(client, test_google_id)
     finally:
         client.finalise()
         server_thread.stop()

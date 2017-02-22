@@ -16,7 +16,7 @@
 
 {% block lead_content %}
   {% if user %}
-    <a href="{{url_for('logout')}}">Logout</a>.
+    <a id="logout-link" href="{{url_for('logout')}}">Logout</a>.
   {% endif %}
 {% endblock lead_content %}
 {% block main_content %}
