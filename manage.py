@@ -146,7 +146,7 @@ def run_command(command):
 
 @manager.command
 def test(db_file=None, browser=None):
-    command = 'py.test --cov=app -rw --fulltrace app/main.py'
+    command = 'py.test --cov=app -rw app/main.py'
     if db_file is not None:
         command += " --db_file={}".format(db_file)
     if browser is not None:

@@ -27,14 +27,14 @@
 </div>
 
 <div id="actions-container" class="container">
-  <label class="button show-modal is-success" target="#add-link-modal">Add Link</label>
+  <button id="add-link-button" class="button show-modal is-success" target="#add-link-modal" disabled>Add Link</button>
 </div>
 
 
 <div id="add-link-modal" class="modal">
   <div class="modal-background"></div>
   <div class="modal-card">
-    <form class="update-link-form">
+    <form id="update-link-form" class="update-link-form">
       <header class="modal-card-head">
         <p class="modal-card-title">Add Link</p>
         <a class="delete close-modal"></a>
@@ -47,7 +47,7 @@
           <label class="label">Address<input class="input" name="address" type="url" placeholder="http://www.pythonanywhere.com"></label>
       </section>
       <footer class="modal-card-foot button-row">
-        <button class="button is-success update-link-button">Add</button>
+        <button id="update-link-submit-button" class="button is-success update-link-button">Add</button>
         <a class="button is-danger close-modal">Cancel</a>
       </footer>
     </form>
@@ -59,22 +59,21 @@
 {% block page_scripts %}
 <script>
 /* global $ */
-
 /* TODO: Everywhere we use 'catid' we should probably be escaping stuff */
 function find_or_add_category(catid){
-    var $category = $(`#${catid}-links`);
+    var $category = $('#' + catid + '-links');
     if ($category.length !== 0){
       return $category
     }
 
-    var $new_category_column = $(`
-      <div class="column" id="${catid}-links">
-        <h2 class="subtitle category-title">${catid}</h2>
-        <table class="table is-stripped is-bordered">
-          <tbody class="link-grid"></tbody>
-        </table>
-      </div>
-    `);
+    var $new_category_column = $('\
+      <div class="column" id="' + catid + '-links">\
+        <h2 class="subtitle category-title">' + catid + '</h2>\
+        <table class="table is-stripped is-bordered">\
+          <tbody class="link-grid"></tbody>\
+        </table>\
+      </div>\
+    ');
     $('#link-categories').append($new_category_column);
 
     return $new_category_column;
@@ -83,11 +82,12 @@ function find_or_add_category(catid){
 function add_link(catid, name, href, link_id){
     var $category_column = find_or_add_category(catid);
     var $link_grid = $category_column.find('.link-grid');
-    var $new_link = $(`
-      <tr class="user-link" link="${link_id}">
-        <td><a class="${catid}-link" href="${href}">${name}</a></td>
-        <td><a class="delete delete-link"></a></td>
-      </tr>`);
+    var $new_link = $('\
+      <tr class="user-link" link="' + link_id + '">\
+        <td><a class="' + catid + '-link"\
+               href="' + href + '">' + name + '</a></td>\
+        <td><a class="delete delete-link"></a></td>\
+      </tr>');
     $link_grid.append($new_link);
     $new_link.find('.delete-link').click(delete_link);
 }
@@ -106,7 +106,10 @@ function update_link(e){
           var name = $form.find('input[name="name"]').val();
           var address = $form.find('input[name="address"]').val();
           add_link(category, name, address, data['link_id']);
-          $update_button.closest('.modal').removeClass('is-active');
+          var $modal = $update_button.closest('.modal');
+          $modal.removeClass('is-active');
+          /* Again, seems unfortunately required for phantomJS */
+          $modal.hide();
         },
         error: function(data){
           $update_button.removeClass('is-loading');
@@ -122,7 +125,7 @@ function delete_link(){
     $delete_button.addClass('is-loading');
     var $user_link = $delete_button.closest('.user-link');
     var link_id = $user_link.attr('link');
-    console.log(`Attempting to delete link: ${link_id}`);
+    console.log('Attempting to delete link: ' + link_id);
     $.ajax({type: "POST",
         url: "{{url_for('delete_link')}}",
         data: { 'link_id': link_id },
@@ -146,5 +149,6 @@ $(document).ready(function(){
       add_link('{{link.category}}', '{{link.name}}', '{{link.address}}', {{link.id}});
     {% endfor %}
 });
+
 </script>
 {% endblock page_scripts%}

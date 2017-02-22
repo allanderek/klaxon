@@ -376,6 +376,7 @@ def give_feedback():
     return success_response()
 
 # Now for some testing.
+from collections import OrderedDict
 import flask.testing
 from selenium import webdriver
 from selenium.webdriver.support import expected_conditions
@@ -483,6 +484,11 @@ class BrowserClient(object):
         condition = expected_conditions.element_to_be_clickable(element_spec)
         return self.wait_for_condition(condition, **kwargs)
 
+    def wait_for_element_to_be_visable(self, selector, **kwargs):
+        element_spec = (By.CSS_SELECTOR, selector)
+        condition = expected_conditions.visibility_of_element_located(element_spec)
+        return self.wait_for_condition(condition, **kwargs)
+
     def wait_for_element(self, selector, **kwargs):
         element_spec = (By.CSS_SELECTOR, selector)
         condition = expected_conditions.presence_of_element_located(element_spec)
@@ -520,6 +526,7 @@ class BrowserClient(object):
         once waited upon).
         """
         try:
+            # TODO: I think I can do element = wait_for_element ...
             self.wait_for_element(selector, **kwargs)
             element = self.driver.find_element_by_css_selector(selector)
             self.scroll_to_element(element)
@@ -536,6 +543,116 @@ class BrowserClient(object):
             Current page logged.""".format(selector)
             self.log_current_page(message=message)
             pytest.fail(message + ": " + e.msg)
+
+    def fill_in_input(self, form_element, input_name, input_text):
+        # So note, in the case of radio buttons, all of the radio buttons will
+        # match, so we then have to choose the one with the correct value. In
+        # the case of a select we have even more work to do because we will have
+        # to find the correct option element.
+        input_css = 'input[name="{0}"],textarea[name="{0}"],select[name="{0}"]'.format( input_name)
+        # We cannot just search for the input-css because in the case of a radio
+        # button there will be more than one of them. So we eliminate any of the
+        # matching input_elements that have a value defined but it is not the
+        # value that we wish to enter.
+        # However, note that in the case that we are 'Editing' an input field
+        # may have a 'value' attribute that is not the same as 'input_text'.
+        # We probably still could do this via CSS with something like:
+        # 'input[type="radio", value=#{input_text}], input[type="text"]'
+        # But it would be quite long as we would have to enumerate all of the
+        # input types for which we expect the value to be different, text, url,
+        # email etc.
+        def appropriate_input(element):
+            return (element.get_attribute('type') != 'radio' or
+                    element.get_attribute('value') == input_text)
+        input_element = next(e for e in form_element.find_elements_by_css_selector(input_css)
+                             if appropriate_input(e))
+        if input_element is None:
+            pytest.fail("Input element is None: {} - {}".format(input_name, input_text))
+
+        input_type = input_element.get_attribute("type")
+        if input_type == 'hidden':
+            # Then it should already have the correct value and we do not
+            # wish to manipulate it. The value is probably in an input
+            # dictionary for the app-client.
+            return
+
+        self.scroll_to_element(input_element)
+        # If the input element is not displayed then we skip over it, this
+        # likely means that the input is only appropriate if a certain radio or
+        # checkbox item is displayed. However, also note that this means we must
+        # make sure that the checkbox/radio input is done before the corresponding
+        # extra-inputs.
+        if not input_element.is_displayed():
+            logging.info("Element {} not displayed therefore not filled in.")
+            # It's a slight hack to include the case in which the current value
+            # is the same as the desired one, we could get rid of this after the
+            # add_channel is no longer needed (in favour of two propose channels)
+            if input_text and input_element.get_attribute('value') != input_text:
+                message = """Element is not displayed and cannot have input
+                given to it: {} - {}""".format(input_name, input_text)
+                self.log_current_page(message=message)
+                pytest.fail(message)
+            return
+        try:
+            if input_type == "checkbox" and input_text or input_type == 'radio':
+                input_element.click()
+            # TODO: Not sure how should I uncheck a previously checked field?
+            elif input_type == "checkbox" and not input_text:
+                pass
+            elif input_element.tag_name == 'select':
+                # In the case of a select element we have to click the
+                # appropriate option, I'm not sure how well this will work in
+                # the case that it has to scroll through the list of options.
+                option_css = 'option[value="{0}"]'.format(input_text)
+                option_element = input_element.find_element_by_css_selector(option_css)
+                option_element.click()
+            elif input_type in ['text', 'textarea', 'password', 'email', 'url']:
+                input_element.clear()
+                # Note: this means that if you provide an empty field eg.
+                # 'middle_name': ''
+                # In your data, then it will have the input field *cleared*, if
+                # you wish for it to simply remain the same, then you should not
+                # have it in your data at all.
+                if input_text:
+                    input_element.send_keys(input_text)
+            elif input_type == 'submit':
+                # Right this means that if the input is 'True' then we are
+                # submitting this form by clicking the relevant submit button.
+                # If the input is 'False' that probably means there is more
+                # than one submit button, corresponding to different responses,
+                # such as 'Allow'/'Deny', or 'Approve'/'Reject'.
+                if input_text and input_text != 'n':
+                    input_element.click()
+            else:
+                pytest.fail("Unknown input type: {}, for input: {}".format(input_type, input_name))
+        except InvalidElementStateException as e:
+            message = """Invalid state exception: {} - {}.
+            Current page logged.""".format(input_name, input_text)
+            self.log_current_page(message=message)
+            pytest.fail(message + ": " + e.msg)
+
+    def fill_in_text_input_by_css(self, input_css, input_text):
+        input_element = self.driver.find_element_by_css_selector(input_css)
+        input_element.send_keys(input_text)
+
+
+    def fill_in_form(self, form_selector, fields):
+        """ form_selector should be the css used to identify the form. fields
+        will be a dictionary mapping field names to the values you wish to input
+        whether that be text or, for example, the value to select from a select
+        field. This will submit the form, if one of the inputs happens to be of
+        type 'submit'. If you want the form fields to be input in a specific
+        order (and if one of the inputs is a 'submit' field then you probably
+        want that to be last), you should use an 'OrderedDict' for the fields.
+        """
+        try:
+            form_element = self.driver.find_element_by_css_selector(form_selector)
+        except NoSuchElementException:
+            self.log_current_page()
+            pytest.fail("""Attempt to fill in a form we could not find: "{0}"
+            Current page logged.""".format(form_selector))
+        for field_name, field_value in fields.items():
+            result = self.fill_in_input(form_element, field_name, field_value)
 
 
 def make_url(endpoint, **kwargs):
@@ -565,10 +682,26 @@ def test_main(client):
     port = application.config['TEST_SERVER_PORT']
     application.config['SERVER_NAME'] = 'localhost:{}'.format(port)
 
-    # Start off by logging out, so we ensure that we are currently logged
-    # out, in order to start the rest of the test.
+    logging.info("""Start off by logging out, so we ensure that we are currently logged
+    out, in order to start the rest of the test.""")
     client.driver.get(make_url('logout'))
     assert 'Klaxon' in client.page_source
 
     test_google_id = '1234'
     google_login_user(client, test_google_id)
+
+    logging.info("""Now that we are logged in, let's create a link.""")
+    client.click('#add-link-button')
+
+    client.wait_for_element_to_be_visable('#update-link-form')
+    link_fields = OrderedDict(
+        category='Main',
+        name='Gmail',
+        address='https://www.gmail.com'
+        )
+    client.fill_in_form('#update-link-form', link_fields)
+    client.click('#update-link-submit-button')
+
+    client.css_exists('#Main-links.column')
+    # Should really check that it has the text 'Gmail'
+    client.css_exists('a.Main-link[href="https://www.gmail.com"]')

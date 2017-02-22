@@ -40,7 +40,7 @@
         else finds this useful, I'd be amazed, but you're most welcome to try.
       </p>
       <p>
-        <a class="show-modal is-success" target="#give-feedback-modal">Give Feedback</a>
+        <a class="show-modal is-success" target="#give-feedback-modal" disabled>Give Feedback</a>
       </p>
     </div>
   </div>
@@ -91,21 +91,20 @@
 
 <script>
 /* global $ */
-
 function message_user(message, category){
-  console.log(`Messaging user(${category}): ${message}`)
+  var $notification = $('\
+          <div class="notification ' + category + '">\
+            <button class="delete"></button>\
+            ' + message + '\
+          </div>');
 
-  var $notification = $(`
-          <div class="notification ${category}">
-            <button class="delete"></button>
-            ${message}
-          </div>`);
 
   $('#messages-to-the-user').append($notification);
   $notification.find('button.delete').click(function(){
     $notification.remove();
   });
 }
+
 
 function give_feedback(e){
     e.preventDefault();
@@ -130,16 +129,31 @@ function give_feedback(e){
 }
 
 $(document).ready(function(){
-    $('.show-modal').click(function(){
-      var $this = $(this);
-      var target_selector = $this.attr('target');
-      $(target_selector).addClass('is-active');
+    $('.show-modal').each(function(){
+      var $button = $(this);
+      $button.click(function(){
+        var $this = $(this);
+        var $target = $($this.attr('target'));
+        $target.addClass('is-active');
+        /* We shouldn't need this, but it appears to be required for the
+           phantomJS tests. */
+        $target.show();
+      });
+      $button.prop('disabled', false);
     });
 
+    /* TODO: This is essentially copied in here as well as the methods which
+    actually respond to the form being completed, but I think instead we should
+    be able to add a 'close_modal' method to each modal element and call that
+    instead. */
     $('.close-modal').click(function(){
       var $modal = $(this).closest('.modal');
       $modal.removeClass('is-active');
+      /* Again, seems unfortunately required for phantomJS */
+      $modal.hide();
     });
+
+    $('#give-feedback-button').click(give_feedback);
 
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
@@ -152,7 +166,6 @@ $(document).ready(function(){
       {% endif %}
     {% endwith %}
 
-    $('#give-feedback-button').click(give_feedback);
 });
 </script>
 {% block page_scripts %}
