@@ -102,6 +102,48 @@ def inject_feedback_form():
 def supress_none(s, default=''):
     return s if s is not None else default
 
+# TODO: Obviously this is probably pretty generalisable to other account kinds.
+# We probably just need to take the provider_name as an argument.
+def google_account_link_and_login(google_profile_id, automatic_signup=True):
+    """Takes in a google account profile id and looks up the klaxon account
+    linked to that google id. Then logs in that user. So obviously it is
+    important that this is not called unless we really have authorisation from
+    the user. If 'automatic_signup' is set to True, then if no account link exists
+    we create a new klaxon account and link it to the given google profile id.
+    Basically I'm not sure this is best behaviour I think we should probably
+    separate sign-up, from login. If someone logs-in with google and we do not
+    have a current-signup we suggest that the user either:
+    1. Has signed up before but not linked their account to their google account
+    2. Has never signed-up before
+    3. Has signed up with a different google account.
+    But for now, we just sign-them-up automatically.
+    """
+    provider_name = 'google'
+    account_link = AccountLink.query.filter_by(
+        external_user_id=google_profile_id,
+        provider_name=provider_name).first()
+    # So probably we actually want to ask the user if they want to create
+    # an account or something like that. Alternatively we have login as
+    # separate from 'sign-up with' and here we would just error and say
+    # "No such account, would you like to sign-up, or perhaps you have
+    # already signed-up with a different provider?"
+    assert automatic_signup
+    if account_link:
+        user = account_link.user
+    else:
+        user = User()
+        database.session.add(user)
+        account_link = AccountLink(
+            external_user_id = google_profile_id,
+            provider_name = provider_name,
+            user = user
+            )
+        database.session.add(account_link)
+        database.session.commit()
+
+    flask.session['user.id'] = user.id
+    return redirect(default='frontpage')
+
 def do_google_login():
     provider_name = 'google'
     scope = ['https://www.googleapis.com/auth/userinfo.email']
@@ -135,29 +177,8 @@ def do_google_login():
     profile = profile_response.json()
     # TODO: Deal with errors/refusals that sort of thing.
 
-    account_link = AccountLink.query.filter_by(
-        external_user_id=profile['id'],
-        provider_name=provider_name).first()
-    # So probably we actually want to ask the user if they want to create
-    # an account or something like that. Alternatively we have login as
-    # separate from 'sign-up with' and here we would just error and say
-    # "No such account, would you like to sign-up, or perhaps you have
-    # already signed-up with a different provider?"
-    if account_link:
-        user = account_link.user
-    else:
-        user = User()
-        database.session.add(user)
-        account_link = AccountLink(
-            external_user_id = profile['id'],
-            provider_name = provider_name,
-            user = user
-            )
-        database.session.add(account_link)
-        database.session.commit()
+    return google_account_link_and_login(profile['id'], automatic_signup=True)
 
-    flask.session['user.id'] = user.id
-    return redirect(default='frontpage')
 
 # TODO: Does this need to be both a 'GET' and a 'POST'?
 @application.route('/login/<provider_name>/', methods=['GET', 'POST'])
@@ -368,8 +389,10 @@ import pytest
 import signal
 
 import threading
-
 import wsgiref.simple_server
+
+import unittest.mock as mock
+
 
 class ServerThread(threading.Thread):
     def setup(self):
@@ -502,7 +525,12 @@ def test_server():
         client.driver.get(make_url('logout'))
         assert 'Klaxon' in client.page_source
 
-        client.click('#google-login-link')
+        test_google_id = '1234'
+        mock_do_google_login = mock.create_autospec(
+            do_google_login,
+            side_effect=lambda : google_account_link_and_login(test_google_id))
+        with mock.patch('main.do_google_login', mock_do_google_login):
+            client.click('#google-login-link')
         client.log_current_page()
 
     finally:
