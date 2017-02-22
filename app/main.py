@@ -52,15 +52,15 @@ logger.setLevel(application.config['LOG_LEVEL'])
 
 database = SQLAlchemy(application)
 
-def set_database(database_filename='test.db', reset_database=False):
+def set_database(db_file='test.db', reset_database=False):
     """Allows us to set the database name so that we could, for example, run
     the develop server with the test database, which would then have all the
     test data, that may be useful either just to avoid inputting it by hand or
     to figure out why a test is failing.
     """
-    database_file = generated_file_path(database_filename)
+    database_file = generated_file_path(db_file)
     application.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + database_file
-    if reset_database:
+    if reset_database or not os.path.exists(database_file):
         with application.app_context():
             database.drop_all()
             database.create_all()
@@ -376,6 +376,7 @@ def give_feedback():
     return success_response()
 
 # Now for some testing.
+import flask.testing
 from selenium import webdriver
 from selenium.webdriver.support import expected_conditions
 from selenium.webdriver.common.by import By
@@ -393,11 +394,15 @@ import wsgiref.simple_server
 
 import unittest.mock as mock
 
+def setup_testing(db_file='test.db'):
+    reset_database = db_file == 'test.db'
+    set_database(db_file=db_file, reset_database=reset_database)
+    application.config['TESTING'] = True
+
 
 class ServerThread(threading.Thread):
-    def setup(self):
-        application.config['TESTING'] = True
-        set_database(database_filename='test.db', reset_database=True)
+    def setup(self, db_file='test.db'):
+        setup_testing(db_file=db_file)
         self.port = application.config['TEST_SERVER_PORT']
 
     def run(self):
@@ -410,8 +415,11 @@ class ServerThread(threading.Thread):
 class BrowserClient(object):
     """Interacts with a running instance of the application via animating a
     browser."""
-    def __init__(self, browser="phantom"):
-        """Note, dbfile is ignored here, this is really only for with AppClient"""
+    def __init__(self, db_file='test.db', browser="phantom",):
+        self.server_thread = ServerThread()
+        self.server_thread.setup(db_file=db_file)
+        self.server_thread.start()
+
         driver_class = {
             'phantom': webdriver.PhantomJS,
             'chrome': webdriver.Chrome,
@@ -430,6 +438,10 @@ class BrowserClient(object):
         # fixed. See: https://github.com/SeleniumHQ/selenium/issues/767
         self.driver.service.process.send_signal(signal.SIGTERM)
         self.driver.quit()
+
+        self.server_thread.stop()
+        self.server_thread.join()
+
 
     @property
     def page_source(self):
@@ -539,29 +551,24 @@ def google_login_user(client, google_id):
         client.css_exists('#logout-link')
 
 
-# TODO: Ultimately we'll need a fixture so that we can have multiple
-# test functions that all use the same server thread and possibly the same
-# browser client.
-def test_server():
-    server_thread = ServerThread()
-    # First start the server
-    server_thread.setup()
-    server_thread.start()
+@pytest.fixture(scope='module')
+def client(request):
+    options = ['db_file', 'browser']
+    kwargs = {k: request.config.getoption('--{}'.format(k), None) for k in options}
+    kwargs = {k:v for k,v in kwargs.items() if v is not None}
+    client = BrowserClient(**kwargs)
+    request.addfinalizer(client.finalise)
+    return client
 
-    client = BrowserClient()
 
-    try:
-        port = application.config['TEST_SERVER_PORT']
-        application.config['SERVER_NAME'] = 'localhost:{}'.format(port)
+def test_main(client):
+    port = application.config['TEST_SERVER_PORT']
+    application.config['SERVER_NAME'] = 'localhost:{}'.format(port)
 
-        # Start off by logging out, so we ensure that we are currently logged
-        # out, in order to start the rest of the test.
-        client.driver.get(make_url('logout'))
-        assert 'Klaxon' in client.page_source
+    # Start off by logging out, so we ensure that we are currently logged
+    # out, in order to start the rest of the test.
+    client.driver.get(make_url('logout'))
+    assert 'Klaxon' in client.page_source
 
-        test_google_id = '1234'
-        google_login_user(client, test_google_id)
-    finally:
-        client.finalise()
-        server_thread.stop()
-        server_thread.join()
+    test_google_id = '1234'
+    google_login_user(client, test_google_id)

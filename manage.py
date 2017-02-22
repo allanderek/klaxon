@@ -145,9 +145,14 @@ def run_command(command):
     return 0 if result == 0 else 1
 
 @manager.command
-def test():
-    result = run_command('py.test --cov=app --fulltrace app/main.py')
-    return result or run_command('coverage html')
+def test(db_file=None, browser=None):
+    command = 'py.test --cov=app -rw --fulltrace app/main.py'
+    if db_file is not None:
+        command += " --db_file={}".format(db_file)
+    if browser is not None:
+        command += " --browser={}".format(browser)
+    return run_command(command) or run_command('coverage html')
+
 
 if __name__ == "__main__":
     manager.run()
