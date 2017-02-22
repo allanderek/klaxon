@@ -94,9 +94,16 @@ class UserLink(database.Model):
     user_id = user_id_column(nullable=False)
     user = user_column(user_id, backref=database.backref('links', lazy='dynamic'))
 
+@application.context_processor
+def inject_feedback_form():
+    return dict(feedback_form=FeedbackForm())
 
-@application.route('/login/<provider_name>/', methods=['GET', 'POST'])
-def login(provider_name):
+@application.template_filter('suppress_none')
+def supress_none(s, default=''):
+    return s if s is not None else default
+
+def do_google_login():
+    provider_name = 'google'
     scope = ['https://www.googleapis.com/auth/userinfo.email']
     client_id = application.config['GOOGLE_CONSUMER_KEY']
     redirect_uri = flask.url_for('login', provider_name=provider_name, _external=True)
@@ -152,32 +159,28 @@ def login(provider_name):
     flask.session['user.id'] = user.id
     return redirect(default='frontpage')
 
+# TODO: Does this need to be both a 'GET' and a 'POST'?
+@application.route('/login/<provider_name>/', methods=['GET', 'POST'])
+def login(provider_name):
+    assert provider_name == 'google'
+    return do_google_login()
+
+
 
 @application.template_test('plural')
 def is_plural(container):
     return len(container) > 1
 
 
-def redirect_url(default='frontpage'):
+def redirect(default='frontpage'):
     """ A simple helper function to redirect the user back to where they came.
 
         See: http://flask.pocoo.org/docs/0.10/reqcontext/ and also here:
         http://stackoverflow.com/questions/14277067/redirect-back-in-flask
     """
-
-    result = (flask.request.args.get('next') or flask.request.referrer or
+    redirect_url = (flask.request.args.get('next') or flask.request.referrer or
             flask.url_for(default))
-    return result
-
-def redirect(default='frontpage'):
-    return flask.redirect(redirect_url(default=default))
-
-
-def render_template(*args, **kwargs):
-    """ A simple wrapper, the base template requires some arguments such as
-    the feedback form. This means that this argument will be in all calls to
-    `flask.render_template` so we may as well factor it out."""
-    return flask.render_template(*args, feedback_form=FeedbackForm(), **kwargs)
+    return flask.redirect(redirect_url)
 
 
 def get_current_user():
@@ -218,8 +221,8 @@ def logout():
 def frontpage():
     user = get_current_user()
     if user:
-        return render_template('home.html', user=user)
-    return render_template('frontpage.html')
+        return flask.render_template('home.html', user=user)
+    return flask.render_template('frontpage.html')
 
 
 class AddUpdateLinkForm(flask_wtf.FlaskForm):
@@ -353,7 +356,12 @@ def give_feedback():
 
 # Now for some testing.
 from selenium import webdriver
-from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.support import expected_conditions
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.common.exceptions import NoSuchElementException, InvalidElementStateException, TimeoutException
+# from selenium.webdriver.common.action_chains import ActionChains
+# from selenium.webdriver.common.keys import Keys
 import pytest
 # Currently just used for the temporary hack to quit the phantomjs process
 # see below in quit_driver.
@@ -400,9 +408,12 @@ class BrowserClient(object):
         self.driver.service.process.send_signal(signal.SIGTERM)
         self.driver.quit()
 
+    @property
+    def page_source(self):
+        return self.driver.page_source
 
     def log_current_page(self, message=None, output_basename=None):
-        content = self.driver.page_source
+        content = self.page_source
         if message:
             logging.info(message)
         # This is frequently what we really care about so I also output it
@@ -415,6 +426,57 @@ class BrowserClient(object):
             outfile.write(content)
         filename = generated_file_path(basename + '.png')
         self.driver.save_screenshot(filename)
+
+    def scroll_to_element(self, element):
+        self.driver.execute_script("return arguments[0].scrollIntoView();", element)
+
+    def wait_for_condition(self, condition, timeout=5):
+        """Wait for the given condition and if it does not occur then log the
+        the current page and fail the current test. If timeout is given then
+        that is how long we wait.
+        """
+        wait = WebDriverWait(self.driver, timeout)
+        try:
+            element = wait.until(condition)
+            return element
+        except TimeoutException:
+            self.log_current_page()
+            pytest.fail("Waiting on a condition timed out, current page logged.")
+
+    def wait_for_element_to_be_clickable(self, selector, **kwargs):
+        element_spec = (By.CSS_SELECTOR, selector)
+        condition = expected_conditions.element_to_be_clickable(element_spec)
+        return self.wait_for_condition(condition, **kwargs)
+
+    def wait_for_element(self, selector, **kwargs):
+        element_spec = (By.CSS_SELECTOR, selector)
+        condition = expected_conditions.presence_of_element_located(element_spec)
+        return self.wait_for_condition(condition, **kwargs)
+
+    def click(self, selector, **kwargs):
+        """ Click an element given by the given selector. Passes its kwargs on
+        to wait for element, so in particular accepts 'no_fail' which means the
+        current test is not failed if the element does not exist (nor appear
+        once waited upon).
+        """
+        try:
+            self.wait_for_element(selector, **kwargs)
+            element = self.driver.find_element_by_css_selector(selector)
+            self.scroll_to_element(element)
+            self.wait_for_element_to_be_clickable(selector)
+            element.click()
+            # TODO: We should probably check somethings work with pressing Enter.
+            # element.send_keys(Keys.ENTER)
+        except NoSuchElementException:
+            if not kwargs.get('no_fail', False):
+                self.log_current_page()
+                pytest.fail('Element "{0}" not found! Current page logged.'.format(selector))
+        except InvalidElementStateException as e:
+            message = """Invalid state exception: {}.
+            Current page logged.""".format(selector)
+            self.log_current_page(message=message)
+            pytest.fail(message + ": " + e.msg)
+
 
 # TODO: Ultimately we'll need a fixture so that we can have multiple
 # test functions that all use the same server thread and possibly the same
@@ -430,7 +492,6 @@ def test_server():
     server_thread.start()
 
     client = BrowserClient()
-    driver = client.driver
 
     try:
         port = application.config['TEST_SERVER_PORT']
@@ -438,8 +499,11 @@ def test_server():
 
         # Start off by logging out, so we ensure that we are currently logged
         # out, in order to start the rest of the test.
-        driver.get(make_url('logout'))
-        assert 'Klaxon' in driver.page_source
+        client.driver.get(make_url('logout'))
+        assert 'Klaxon' in client.page_source
+
+        client.click('#google-login-link')
+        client.log_current_page()
 
     finally:
         client.finalise()
