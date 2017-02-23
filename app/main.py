@@ -693,7 +693,12 @@ def do_dialog_form(client, open_css, form_css, fields, submit_css):
         client.click(submit_css)
     client.wait_for_element_to_be_invisible(form_css)
 
-
+def check_open_close_dialog(client, open_css, form_css):
+    """Checks that we can open a dialog and close it without submitting it."""
+    close_css = form_css + ' header a.close-modal'
+    cancel_css = form_css + ' footer a.close-modal'
+    do_dialog_form(client, open_css, form_css, {}, close_css)
+    do_dialog_form(client, open_css, form_css, {}, cancel_css)
 
 def check_creating_link(client, link_fields):
     do_dialog_form(
@@ -761,3 +766,15 @@ def test_main(client):
         )
     check_giving_feedback(client, feedback_fields)
     check_messages(client, "Thank you for your feedback.")
+
+def test_dialog_closes(client):
+    client.driver.get(make_url('logout'))
+    test_google_id = '4321'
+    check_google_login(client, test_google_id)
+
+    dialogs = [
+        ('#add-link-button', '#update-link-form'),
+        ('#give-feedback-link', '#give-feedback-form')
+        ]
+    for open_css, form_css in dialogs:
+        check_open_close_dialog(client, open_css, form_css)
