@@ -41,7 +41,7 @@ class Configuration(object):
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     ADMINS = ['allan.clark@gmail.com']
     DEBUG=True
-    LOG_LEVEL=logging.INFO
+    LOG_LEVEL=logging.DEBUG
 
 application = flask.Flask(__name__)
 application.config.from_object(Configuration)
