@@ -40,7 +40,7 @@
         else finds this useful, I'd be amazed, but you're most welcome to try.
       </p>
       <p>
-        <a class="show-modal is-success" target="#give-feedback-modal" disabled>Give Feedback</a>
+        <a id="give-feedback-link" class="show-modal is-success" target="#give-feedback-modal" disabled>Give Feedback</a>
       </p>
     </div>
   </div>
@@ -50,7 +50,7 @@
 <div id="give-feedback-modal" class="modal">
   <div class="modal-background"></div>
   <div class="modal-card">
-    <form class="give-feedback-form">
+    <form id="give-feedback-form">
       <header class="modal-card-head">
         <p class="modal-card-title">Give Feedback</p>
         <a class="delete close-modal"></a>
@@ -79,7 +79,7 @@
 
       </section>
       <footer class="modal-card-foot button-row">
-        <button class="button is-success" id="give-feedback-button">Submit</button>
+        <button class="button is-success" id="submit-give-feedback">Submit</button>
         <a class="button is-danger close-modal">Cancel</a>
       </footer>
     </form>
@@ -116,7 +116,9 @@ function give_feedback(e){
         data: $form.serialize(),
         success: function(data){
           $submit_button.removeClass('is-loading');
-          $submit_button.closest('.modal').removeClass('is-active');
+          $modal = $submit_button.closest('.modal')
+          $modal.removeClass('is-active');
+          $modal.hide();
           message_user('Thank you for your feedback.');
         },
         error: function(data){
@@ -153,7 +155,7 @@ $(document).ready(function(){
       $modal.hide();
     });
 
-    $('#give-feedback-button').click(give_feedback);
+    $('#submit-give-feedback').click(give_feedback);
 
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}

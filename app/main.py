@@ -41,7 +41,7 @@ class Configuration(object):
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     ADMINS = ['allan.clark@gmail.com']
     DEBUG=True
-    LOG_LEVEL=logging.DEBUG
+    LOG_LEVEL=logging.INFO
 
 application = flask.Flask(__name__)
 application.config.from_object(Configuration)
@@ -333,17 +333,15 @@ class Email(object):
         logging.debug("------- End email message -----")
 
 
-def send_email_message(email):
-    # We don't want to actually send the message every time we're testing.
-    # Note that if we really wish to record the emails and check that the
-    # correct ones were "sent" out, then we have to do something a bit clever
-    # because this code will be executed in a different process to the
-    # test code. We could have some kind of test-only route that returns the
-    # list of emails sent as a JSON object or something.
-    if not application.config['TESTING'] and not application.config['DEBUG']:
-        send_email_message_mailgun(email)
-    else:
-        email.log_email_message()
+    def send(self):
+        # We do not actually send the message if we're in DEBUG mode, we just
+        # log it instead. For testing, we mock this method so we can just assert
+        # that we're not testing.
+        assert not application.config['TESTING']
+        if not application.config['DEBUG']:
+            send_email_message_mailgun(self)
+        else:
+            self.log_email_message()
 
 
 class FeedbackForm(flask_wtf.FlaskForm):
@@ -372,7 +370,7 @@ def give_feedback():
     Content: {2}
     """.format(feedback_name, feedback_email, feedback_content)
     email = Email(subject, message_body, sender_name, recipients)
-    send_email_message(email)
+    email.send()
     return success_response()
 
 # Now for some testing.
@@ -545,14 +543,10 @@ class BrowserClient(object):
         once waited upon).
         """
         try:
-            # TODO: I think I can do element = wait_for_element ...
-            self.wait_for_element(selector, **kwargs)
-            element = self.driver.find_element_by_css_selector(selector)
+            element = self.wait_for_element(selector, **kwargs)
             self.scroll_to_element(element)
             self.wait_for_element_to_be_clickable(selector)
             element.click()
-            # TODO: We should probably check somethings work with pressing Enter.
-            # element.send_keys(Keys.ENTER)
         except NoSuchElementException:
             if not kwargs.get('no_fail', False):
                 self.log_current_page()
@@ -671,14 +665,14 @@ class BrowserClient(object):
             pytest.fail("""Attempt to fill in a form we could not find: "{0}"
             Current page logged.""".format(form_selector))
         for field_name, field_value in fields.items():
-            result = self.fill_in_input(form_element, field_name, field_value)
+            self.fill_in_input(form_element, field_name, field_value)
 
 
 def make_url(endpoint, **kwargs):
     with application.app_context():
         return flask.url_for(endpoint, **kwargs)
 
-def google_login_user(client, google_id):
+def check_google_login(client, google_id):
     mock_do_google_login = mock.create_autospec(
         do_google_login,
         side_effect=lambda : google_account_link_and_login(google_id))
@@ -686,6 +680,41 @@ def google_login_user(client, google_id):
         client.click('#google-login-link')
         client.css_exists('#logout-link')
 
+def check_messages(client, *texts):
+    client.check_css_contains_texts('.notification', *texts)
+
+def do_dialog_form(client, open_css, form_css, fields, submit_css):
+    client.click(open_css)
+    client.wait_for_element_to_be_visible(form_css)
+    client.fill_in_form(form_css, fields)
+    # It is possible to have the submit button css in with the fields, hence the
+    # submit_css may not be necessary.
+    if submit_css is not None:
+        client.click(submit_css)
+    client.wait_for_element_to_be_invisible(form_css)
+
+
+
+def check_creating_link(client, link_fields):
+    do_dialog_form(
+        client,
+        '#add-link-button',
+        '#update-link-form',
+        link_fields,
+        '#update-link-submit-button'
+        )
+
+def check_giving_feedback(client, feedback_fields):
+    with mock.patch('main.Email') as MockEmail:
+        do_dialog_form(
+            client,
+            '#give-feedback-link',
+            '#give-feedback-form',
+            feedback_fields,
+            '#submit-give-feedback'
+            )
+        MockEmail.assert_called_once()
+        MockEmail.send.assert_called_once()
 
 @pytest.fixture(scope='module')
 def client(request):
@@ -714,19 +743,21 @@ def test_main(client):
     assert 'Klaxon' in client.page_source
 
     test_google_id = '1234'
-    google_login_user(client, test_google_id)
+    check_google_login(client, test_google_id)
 
     logging.info("""Now that we are logged in, let's create a link.""")
-    client.click('#add-link-button')
-
-    client.wait_for_element_to_be_visible('#update-link-form')
     link_fields = OrderedDict(
         category='Main',
         name='Gmail',
-        address='https://www.gmail.com'
+        address="https://www.gmail.com"
         )
-    client.fill_in_form('#update-link-form', link_fields)
-    client.click('#update-link-submit-button')
-    client.wait_for_element_to_be_invisible('#update-link-form')
+    check_creating_link(client, link_fields)
     check_link(client, link_fields)
 
+    feedback_fields = OrderedDict(
+        feedback_name = 'First user',
+        feedback_email = 'first_user@example.com',
+        feedback_text = 'I just made first link. I love it.'
+        )
+    check_giving_feedback(client, feedback_fields)
+    check_messages(client, "Thank you for your feedback.")
