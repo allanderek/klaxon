@@ -92,32 +92,16 @@ function add_link(catid, name, href, link_id){
     $new_link.find('.delete-link').click(delete_link);
 }
 
-function update_link(e){
-    e.preventDefault();
-    var $update_button = $(this);
-    $update_button.addClass('is-loading');
-    var $form = $update_button.closest('.update-link-form');
-    $.ajax({type: "POST",
-        url: "{{url_for('add_update_link')}}",
-        data: $form.serialize(),
-        success: function(data){
-          $update_button.removeClass('is-loading');
-          var category = $form.find('input[name="category"]').val();
-          var name = $form.find('input[name="name"]').val();
-          var address = $form.find('input[name="address"]').val();
-          add_link(category, name, address, data['link_id']);
-          var $modal = $update_button.closest('.modal');
-          $modal.removeClass('is-active');
-          /* Again, seems unfortunately required for phantomJS */
-          $modal.hide();
-        },
-        error: function(data){
-          $update_button.removeClass('is-loading');
-          alert('Hmm, something failed.');
-        }
-      });
-}
-
+var update_link = submit_dialog({
+    url: "{{url_for('add_update_link')}}",
+    success: function(data, $form){
+        var category = $form.find('input[name="category"]').val();
+        var name = $form.find('input[name="name"]').val();
+        var address = $form.find('input[name="address"]').val();
+        add_link(category, name, address, data['link_id']);
+    },
+    error: function(data){ message_user('Adding link failed.'); }
+  });
 
 function delete_link(){
     var $delete_button = $(this);

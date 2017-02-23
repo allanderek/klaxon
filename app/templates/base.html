@@ -128,7 +128,7 @@ function submit_dialog(settings){
               // $modal = $submit_button.closest('.modal')
               // $modal.removeClass('is-active');
               // $modal.hide();
-              settings.success(data);
+              settings.success(data, $form);
             },
             error: function(data){
               $submit_button.removeClass('is-loading');
