@@ -519,6 +519,20 @@ class BrowserClient(object):
         pytest.fail("""Element "{0}" was found on page when expected not to be
         present. Current page logged.""".format(css_selector))
 
+    def check_css_contains_texts(self, selector, *texts):
+        """For each text argument given we check that there is an element
+        matching the given selector which *contains* the given text. Note that
+        it merely has to contain it, not equal it."""
+        elements = self.driver.find_elements_by_css_selector(selector)
+        element_texts = [e.text for e in elements]
+        not_found = [t for t in texts if not any(t in et for et in element_texts)]
+        if not_found:
+            not_found_messages = ", ".join(not_found)
+            self.log_current_page(message="Texts were not found: {}".format(not_found_messages))
+            pytest.fail("""We expected elements with the following selector: {},
+            to contain the following texts which were not found:
+            "{}". Current page logged.""".format(selector, not_found_messages))
+
     def click(self, selector, **kwargs):
         """ Click an element given by the given selector. Passes its kwargs on
         to wait for element, so in particular accepts 'no_fail' which means the
@@ -677,6 +691,13 @@ def client(request):
     request.addfinalizer(client.finalise)
     return client
 
+def check_link(client, link_fields):
+    category = link_fields['category']
+    name = link_fields['name']
+    href = link_fields['address']
+    client.css_exists('#{}-links.column'.format(category))
+    client.check_css_contains_texts( 'a.{0}-link[href="{1}"]'.format(category, href), name)
+
 
 def test_main(client):
     port = application.config['TEST_SERVER_PORT']
@@ -702,6 +723,4 @@ def test_main(client):
     client.fill_in_form('#update-link-form', link_fields)
     client.click('#update-link-submit-button')
 
-    client.css_exists('#Main-links.column')
-    # Should really check that it has the text 'Gmail'
-    client.css_exists('a.Main-link[href="https://www.gmail.com"]')
+    check_link(client, link_fields)
