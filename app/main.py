@@ -484,9 +484,14 @@ class BrowserClient(object):
         condition = expected_conditions.element_to_be_clickable(element_spec)
         return self.wait_for_condition(condition, **kwargs)
 
-    def wait_for_element_to_be_visable(self, selector, **kwargs):
+    def wait_for_element_to_be_visible(self, selector, **kwargs):
         element_spec = (By.CSS_SELECTOR, selector)
         condition = expected_conditions.visibility_of_element_located(element_spec)
+        return self.wait_for_condition(condition, **kwargs)
+
+    def wait_for_element_to_be_invisible(self, selector, **kwargs):
+        element_spec = (By.CSS_SELECTOR, selector)
+        condition = expected_conditions.invisibility_of_element_located(element_spec)
         return self.wait_for_condition(condition, **kwargs)
 
     def wait_for_element(self, selector, **kwargs):
@@ -714,7 +719,7 @@ def test_main(client):
     logging.info("""Now that we are logged in, let's create a link.""")
     client.click('#add-link-button')
 
-    client.wait_for_element_to_be_visable('#update-link-form')
+    client.wait_for_element_to_be_visible('#update-link-form')
     link_fields = OrderedDict(
         category='Main',
         name='Gmail',
@@ -722,5 +727,6 @@ def test_main(client):
         )
     client.fill_in_form('#update-link-form', link_fields)
     client.click('#update-link-submit-button')
-
+    client.wait_for_element_to_be_invisible('#update-link-form')
     check_link(client, link_fields)
+
