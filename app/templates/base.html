@@ -105,32 +105,55 @@ function message_user(message, category){
   });
 }
 
-
-function give_feedback(e){
-    e.preventDefault();
-    var $submit_button = $(this);
-    $submit_button.addClass('is-loading');
-    var $form = $submit_button.closest('form');
-    $.ajax({type: "POST",
-        url: "{{url_for('give_feedback')}}",
-        data: $form.serialize(),
-        success: function(data){
-          $submit_button.removeClass('is-loading');
-          $modal = $submit_button.closest('.modal')
-          $modal.removeClass('is-active');
-          $modal.hide();
-          message_user('Thank you for your feedback.');
-        },
-        error: function(data){
-          $submit_button.removeClass('is-loading');
-          /* TODO: Be much more careful about this, checking if message is even
-          in the data for example. */
-          message_user(data['message']);
-        }
-      });
+function close_modal($button){
+    $modal = $button.closest('.modal');
+    $modal.removeClass('is-active');
+    $modal.hide();
+    $modal.find('.is-loading').removeClass('is-loading');
 }
 
+function submit_dialog(settings){
+    return function(e){
+        e.preventDefault();
+        var $submit_button = $(this);
+        $submit_button.addClass('is-loading');
+        var $form = $submit_button.closest('form');
+        var ajax_settings = {
+            type: "POST",
+            data: $form.serialize(),
+            url: settings.url,
+            success: function(data){
+              close_modal($submit_button);
+              // $submit_button.removeClass('is-loading');
+              // $modal = $submit_button.closest('.modal')
+              // $modal.removeClass('is-active');
+              // $modal.hide();
+              settings.success(data);
+            },
+            error: function(data){
+              $submit_button.removeClass('is-loading');
+              /* TODO: Be much more careful about this, checking if message is even
+              in the data for example. */
+              message_user(data['message']);
+              settings.error(data);
+            }
+        };
+        $.ajax(ajax_settings);
+    }
+}
+
+var give_feedback = submit_dialog({
+    url: "{{url_for('give_feedback')}}",
+    success: function(data){ message_user('Thank you for your feedback.'); },
+    error: function(data){ }
+  });
+
 $(document).ready(function(){
+
+    $('.close-modal').click(function(){
+        close_modal($(this));
+        });
+
     $('.show-modal').each(function(){
       var $button = $(this);
       $button.click(function(){
@@ -141,18 +164,8 @@ $(document).ready(function(){
            phantomJS tests. */
         $target.show();
       });
+      /* Now that we have set up the click target of the button we can enable it */
       $button.prop('disabled', false);
-    });
-
-    /* TODO: This is essentially copied in here as well as the methods which
-    actually respond to the form being completed, but I think instead we should
-    be able to add a 'close_modal' method to each modal element and call that
-    instead. */
-    $('.close-modal').click(function(){
-      var $modal = $(this).closest('.modal');
-      $modal.removeClass('is-active');
-      /* Again, seems unfortunately required for phantomJS */
-      $modal.hide();
     });
 
     $('#submit-give-feedback').click(give_feedback);
