@@ -426,7 +426,8 @@ class BrowserClient(object):
             }.get(browser)
         self.driver = driver_class()
         self.driver.set_window_size(1200, 760)
-
+        selenium_logger = logging.getLogger(name="selenium.webdriver.remote.remote_connection")
+        selenium_logger.setLevel(logging.INFO)
 
     def finalise(self):
         self.driver.close()
