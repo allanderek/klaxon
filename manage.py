@@ -145,8 +145,8 @@ def run_command(command):
     return 0 if result == 0 else 1
 
 @manager.command
-def test(db_file=None, browser=None):
-    command = 'py.test --cov=app -rw app/main.py'
+def test(db_file=None, browser=None, maxfail=1):
+    command = f'py.test --cov=app -rw --maxfail={maxfail} app/main.py'
     if db_file is not None:
         command += " --db_file={}".format(db_file)
     if browser is not None:
