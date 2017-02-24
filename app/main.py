@@ -711,7 +711,7 @@ def check_creating_link(client, link_fields):
         )
 
 def check_giving_feedback(client, feedback_fields):
-    with mock.patch('main.Email') as MockEmail:
+    with mock.patch('main.Email.send') as mock_send:
         do_dialog_form(
             client,
             '#give-feedback-link',
@@ -719,8 +719,7 @@ def check_giving_feedback(client, feedback_fields):
             feedback_fields,
             '#submit-give-feedback'
             )
-        MockEmail.assert_called_once()
-        MockEmail.send.assert_called_once()
+        mock_send.assert_called_once()
 
 @pytest.fixture(scope='module')
 def client(request):
