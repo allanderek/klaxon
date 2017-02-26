@@ -70,6 +70,26 @@ class User(database.Model):
     __tablename__ = 'user'
     id = database.Column(database.Integer, primary_key=True)
 
+    def get_linked_accounts(self, provider_name):
+        return AccountLink.query.filter_by(provider_name=provider_name).all()
+
+    def get_twitter_mentions(self):
+        twitter_accounts = self.get_linked_accounts('twitter')
+        for account in twitter_accounts:
+            client_key = application.config['TWITTER_CONSUMER_KEY']
+            client_secret = application.config['TWITTER_CONSUMER_SECRET']
+            twitter = requests_oauthlib.OAuth1Session(
+                client_key,
+                client_secret=client_secret,
+                resource_owner_key=account.oauth_token,
+                resource_owner_secret=account.oauth_token_secret)
+
+            protected_url = 'https://api.twitter.com/1.1/statuses/mentions_timeline.json'
+            # TODO: Obviously a bit of error handling would not go amiss here.
+            mentions = twitter.get(protected_url).json()
+            for m in mentions:
+                yield m
+
 # TODO: Could this be a constant?
 def user_id_column(nullable=True):
     return database.Column(database.Integer, database.ForeignKey('user.id'), nullable=nullable)
@@ -84,6 +104,10 @@ class AccountLink(database.Model):
 
     user_id = user_id_column(nullable=False)
     user = user_column(user_id)
+
+    oauth_token = database.Column(database.String)
+    oauth_token_secret = database.Column(database.String)
+
 
 class UserLink(database.Model):
     id = database.Column(database.Integer, primary_key=True)
@@ -101,6 +125,44 @@ def inject_feedback_form():
 @application.template_filter('suppress_none')
 def supress_none(s, default=''):
     return s if s is not None else default
+
+def get_logged_in_user():
+    user_id = flask.session['user.id']
+    return User.query.filter_by(id=user_id).first()
+
+def log_user_in(user_id):
+    flask.session['user.id'] = user_id
+
+def link_account(external_user_id, provider_name):
+    account_link = AccountLink.query.filter_by(
+        external_user_id=external_user_id,
+        provider_name=provider_name).first()
+
+    user = get_logged_in_user()
+
+    # If there is no logged-in user and no account link, then we don't know what
+    # to do so we just tell the user that.
+    if not user and not account_link:
+        flask.flash("You're not logged in, you need to either log-in or sign-up")
+        return None
+
+    if account_link:
+        # In this case the user has already linked their 'provider_name' account
+        # to a klaxon one, and we can be relatively sure it is them so we can
+        # just log them in.
+        log_user_in(account_link.user_id)
+        return account_link
+
+    assert user
+    account_link = AccountLink(
+        external_user_id = external_user_id,
+        provider_name = provider_name,
+        user = user
+        )
+    database.session.add(account_link)
+    database.session.commit()
+    return account_link
+
 
 # TODO: Obviously this is probably pretty generalisable to other account kinds.
 # We probably just need to take the provider_name as an argument.
@@ -179,12 +241,64 @@ def do_google_login():
 
     return google_account_link_and_login(profile['id'], automatic_signup=True)
 
+def do_twitter_login():
+    client_key = application.config['TWITTER_CONSUMER_KEY']
+    client_secret = application.config['TWITTER_CONSUMER_SECRET']
+    twitter = requests_oauthlib.OAuth1Session(
+        client_key, client_secret=client_secret
+        )
+
+    oauth_token = request.args.get('oauth_token', None)
+    oauth_verifier = request.args.get('oauth_verifier', None)
+    if not oauth_token or not oauth_verifier:
+        request_token_url = 'https://api.twitter.com/oauth/request_token'
+        fetch_response = twitter.fetch_request_token(request_token_url)
+        flask.session['resource_owner_key'] = fetch_response.get('oauth_token')
+        flask.session['resource_owner_secret'] = fetch_response.get('oauth_token_secret')
+
+        base_authorization_url = 'https://api.twitter.com/oauth/authorize'
+        authorization_url = twitter.authorization_url(base_authorization_url)
+
+        return flask.redirect(authorization_url)
+
+    access_token_url = 'https://api.twitter.com/oauth/access_token'
+
+    twitter = requests_oauthlib.OAuth1Session(
+        client_key,
+        client_secret=client_secret,
+        resource_owner_key=flask.session['resource_owner_key'],
+        resource_owner_secret=flask.session['resource_owner_secret'],
+        verifier=oauth_verifier)
+    oauth_tokens = twitter.fetch_access_token(access_token_url)
+    oauth_token = oauth_tokens.get('oauth_token')
+    oauth_token_secret = oauth_tokens.get('oauth_token_secret')
+
+    protected_url = 'https://api.twitter.com/1.1/account/verify_credentials.json'
+
+    twitter = requests_oauthlib.OAuth1Session(
+        client_key,
+        client_secret=client_secret,
+        resource_owner_key=oauth_token,
+        resource_owner_secret=oauth_token_secret)
+
+    # TODO: Obviously a bit of error handling would not go amiss here.
+    profile = twitter.get(protected_url).json()
+    twitter_user_id = profile['id']
+    account_link = link_account(twitter_user_id, 'twitter')
+    account_link.oauth_token = oauth_token
+    account_link.oauth_token_secret = oauth_token_secret
+    database.session.commit()
+    return flask.redirect(flask.url_for('frontpage'))
+
 
 # TODO: Does this need to be both a 'GET' and a 'POST'?
 @application.route('/login/<provider_name>/', methods=['GET', 'POST'])
 def login(provider_name):
-    assert provider_name == 'google'
-    return do_google_login()
+    assert provider_name in ['google', 'twitter']
+    if provider_name == 'google':
+        return do_google_login()
+    if provider_name == 'twitter':
+        return do_twitter_login()
 
 
 

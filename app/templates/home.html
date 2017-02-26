@@ -54,6 +54,17 @@
   </div>
 </div>
 
+<h2 class="title section-title">Link Other Accounts</h2>
+<p>
+  Link your <a href="login/twitter">Twitter account</a>.
+</p>
+
+<h2>Twitter mentions</h2>
+{% for mention in user.get_twitter_mentions() %}
+  {{mention['created_at']}}
+  {{mention['text']}}
+{% endfor %}
+
 {% endblock %}
 
 {% block page_scripts %}
