@@ -56,25 +56,29 @@
 
 <h2 class="title section-title">Link Other Accounts</h2>
 <p>
-  Link your <a href="login/twitter">Twitter account</a>.
+  Link your <a id="link-twitter-account-link" href="login/twitter">Twitter account</a>.
 </p>
 
-<h2>Twitter mentions</h2>
-{% for mention in user.get_twitter_mentions() %}
-    <div class="box">
-      <article class="media">
-        <div class="media-content">
-          <div class="content">
-            <p>
-              <strong>{{mention['user']['name']}}</strong> <small>@{{mention['user']['screen_name']}}</small> <small>{{mention['created_at']}}</small>
-              <br>
-              {{mention['text']}}
-            </p>
-          </div>
+{% if user.has_linked_account('twitter') %}
+  <div id="twitter-section">
+    <h2>Twitter mentions</h2>
+    {% for mention in user.get_twitter_mentions() %}
+        <div class="box twitter-mention">
+          <article class="media">
+            <div class="media-content">
+              <div class="content">
+                <p class="twitter-mention-text">
+                  <strong>{{mention['user']['name']}}</strong> <small>@{{mention['user']['screen_name']}}</small> <small>{{mention['created_at']}}</small>
+                  <br>
+                  {{mention['text']}}
+                </p>
+              </div>
+            </div>
+          </article>
         </div>
-      </article>
-    </div>
-{% endfor %}
+    {% endfor %}
+  </div>
+{% endif %}
 
 {% endblock %}
 

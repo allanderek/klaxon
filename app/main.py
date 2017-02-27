@@ -70,8 +70,13 @@ class User(database.Model):
     __tablename__ = 'user'
     id = database.Column(database.Integer, primary_key=True)
 
+    def has_linked_account(self, provider_name):
+        return bool(AccountLink.query.filter_by(
+            user_id=self.id, provider_name=provider_name).first())
+
     def get_linked_accounts(self, provider_name):
-        return AccountLink.query.filter_by(provider_name=provider_name).all()
+        return AccountLink.query.filter_by(
+            user_id=self.id, provider_name=provider_name).all()
 
     def get_twitter_mentions(self):
         twitter_accounts = self.get_linked_accounts('twitter')
@@ -99,6 +104,10 @@ def user_column(key_field, **kwargs):
 class AccountLink(database.Model):
     """Links a klaxon account to a login from an external provider such
     google, or twitter."""
+    # TODO: I actually think this should have an id of its own, the primary_key
+    # means that this must be unique, but is it not possible that two people have
+    # the same external_user_id on a different account? Eg. someone's twitter
+    # account id might be the same as someone else's google account id?
     external_user_id = database.Column(database.String, primary_key=True)
     provider_name = database.Column(database.String, nullable=False)
 
@@ -506,6 +515,11 @@ import threading
 import wsgiref.simple_server
 
 import unittest.mock as mock
+import uuid
+
+def get_new_unique_identifier():
+    return uuid.uuid4().hex
+
 
 def setup_testing(db_file='test.db'):
     reset_database = db_file == 'test.db'
@@ -795,6 +809,17 @@ def check_google_login(client, google_id):
         client.click('#google-login-link')
         client.css_exists('#logout-link')
 
+def check_twitter_link_current_account(client, twitter_id):
+    def login_side_effect():
+        link_account(twitter_id, 'twitter')
+        return flask.redirect(flask.url_for('frontpage'))
+    mock_do_twitter_login = mock.create_autospec(
+        do_twitter_login,
+        side_effect=login_side_effect)
+    with mock.patch('main.do_twitter_login', mock_do_twitter_login):
+        client.click('#link-twitter-account-link')
+        client.css_exists('#twitter-section')
+
 def check_messages(client, *texts):
     client.check_css_contains_texts('.notification', *texts)
 
@@ -851,7 +876,6 @@ def check_link(client, link_fields):
     client.css_exists('#{}-links.column'.format(category))
     client.check_css_contains_texts( 'a.{0}-link[href="{1}"]'.format(category, href), name)
 
-
 def test_main(client):
     port = application.config['TEST_SERVER_PORT']
     application.config['SERVER_NAME'] = 'localhost:{}'.format(port)
@@ -861,7 +885,7 @@ def test_main(client):
     client.driver.get(make_url('logout'))
     assert 'Klaxon' in client.page_source
 
-    test_google_id = '1234'
+    test_google_id = get_new_unique_identifier()
     check_google_login(client, test_google_id)
 
     logging.info("""Now that we are logged in, let's create a link.""")
@@ -881,9 +905,22 @@ def test_main(client):
     check_giving_feedback(client, feedback_fields)
     check_messages(client, "Thank you for your feedback.")
 
+    def get_twitter_mentions(user):
+        return [{'text': 'Hello', 'created_at': 'Now',
+                 'user': { 'name': 'Me',
+                           'screen_name': 'another_me' }}]
+    mock_get_twitter_mentions = mock.create_autospec(
+        User.get_twitter_mentions,
+        side_effect=get_twitter_mentions)
+    with mock.patch('main.User.get_twitter_mentions', mock_get_twitter_mentions):
+        check_twitter_link_current_account(client, get_new_unique_identifier())
+        client.css_exists('.twitter-mention')
+        client.check_css_contains_texts('.twitter-mention-text', 'Hello')
+
+
 def test_dialog_closes(client):
     client.driver.get(make_url('logout'))
-    test_google_id = '4321'
+    test_google_id = get_new_unique_identifier()
     check_google_login(client, test_google_id)
 
     dialogs = [
