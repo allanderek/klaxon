@@ -84,7 +84,7 @@ class User(database.Model):
                 resource_owner_key=account.oauth_token,
                 resource_owner_secret=account.oauth_token_secret)
 
-            protected_url = 'https://api.twitter.com/1.1/statuses/mentions_timeline.json'
+            protected_url = 'https://api.twitter.com/1.1/statuses/mentions_timeline.json?count=4'
             # TODO: Obviously a bit of error handling would not go amiss here.
             mentions = twitter.get(protected_url).json()
             for m in mentions:

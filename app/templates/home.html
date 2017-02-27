@@ -61,8 +61,19 @@
 
 <h2>Twitter mentions</h2>
 {% for mention in user.get_twitter_mentions() %}
-  {{mention['created_at']}}
-  {{mention['text']}}
+    <div class="box">
+      <article class="media">
+        <div class="media-content">
+          <div class="content">
+            <p>
+              <strong>{{mention['user']['name']}}</strong> <small>@{{mention['user']['screen_name']}}</small> <small>{{mention['created_at']}}</small>
+              <br>
+              {{mention['text']}}
+            </p>
+          </div>
+        </div>
+      </article>
+    </div>
 {% endfor %}
 
 {% endblock %}
