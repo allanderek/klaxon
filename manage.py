@@ -151,7 +151,7 @@ def save_links(user_id=None):
     user = main.User.query.filter_by(id=user_id).one()
     links = main.UserLink.query.filter_by(user_id=user.id).all()
     for link in links:
-        print(f'{link.category}, {link.name}, {link.address}')
+        print('{0}, {1}, {2}'.format(link.category, link.name, link.address))
 
 @manager.command
 def load_links(filename='saved_links.text', user_id=None):
