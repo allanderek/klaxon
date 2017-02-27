@@ -160,7 +160,7 @@ def load_links(filename='saved_links.text', user_id=None):
     user = main.User.query.filter_by(id=user_id).one()
     with open(filename, 'r') as links_file:
         for line in links_file:
-            fields = split(', ')
+            fields = line.split(', ')
             if len(fields) != 3:
                 print('Not a three')
                 continue
