@@ -145,6 +145,35 @@ def run_command(command):
     return 0 if result == 0 else 1
 
 @manager.command
+def save_links(user_id=None):
+    if user_id is None:
+        print("You need to specify the id of the user, check the database.")
+    user = main.User.query.filter_by(id=user_id).one()
+    links = main.UserLink.query.filter_by(user_id=user.id).all()
+    for link in links:
+        print(f'{link.category}, {link.name}, {link.address}')
+
+@manager.command
+def load_links(filename='saved_links.text', user_id=None):
+    if user_id is None:
+        print("You need to specify the id of the user, check the database.")
+    user = main.User.query.filter_by(id=user_id).one()
+    with open(filename, 'r') as links_file:
+        for line in links_file:
+            fields = split(', ')
+            if len(fields) != 3:
+                print('Not a three')
+                continue
+            link = main.UserLink(
+                user=user,
+                category=fields[0],
+                name=fields[1],
+                address=fields[2].rstrip()
+                )
+            database.session.add(link)
+        database.session.commit()
+
+@manager.command
 def test(db_file=None, browser=None, maxfail=1):
     command = f'py.test --cov=app -rw --maxfail={maxfail} app/main.py'
     if db_file is not None:
