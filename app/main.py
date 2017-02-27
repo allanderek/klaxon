@@ -261,7 +261,11 @@ def do_twitter_login():
     oauth_verifier = request.args.get('oauth_verifier', None)
     if not oauth_token or not oauth_verifier:
         request_token_url = 'https://api.twitter.com/oauth/request_token'
-        fetch_response = twitter.fetch_request_token(request_token_url)
+        callback_url = flask.url_for('login', provider_name='twitter', _external=True)
+        fetch_response = twitter.fetch_request_token(
+            request_token_url,
+            oauth_callback=callback_url
+            )
         flask.session['resource_owner_key'] = fetch_response.get('oauth_token')
         flask.session['resource_owner_secret'] = fetch_response.get('oauth_token_secret')
 
