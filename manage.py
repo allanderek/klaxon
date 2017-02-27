@@ -175,7 +175,7 @@ def load_links(filename='saved_links.text', user_id=None):
 
 @manager.command
 def test(db_file=None, browser=None, maxfail=1):
-    command = f'py.test --cov=app -rw --maxfail={maxfail} app/main.py'
+    command = 'py.test --cov=app -rw --maxfail={0} app/main.py'.format(maxfail)
     if db_file is not None:
         command += " --db_file={}".format(db_file)
     if browser is not None:
