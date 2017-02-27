@@ -70,6 +70,31 @@ class User(database.Model):
     __tablename__ = 'user'
     id = database.Column(database.Integer, primary_key=True)
 
+    def has_linked_account(self, provider_name):
+        return bool(AccountLink.query.filter_by(
+            user_id=self.id, provider_name=provider_name).first())
+
+    def get_linked_accounts(self, provider_name):
+        return AccountLink.query.filter_by(
+            user_id=self.id, provider_name=provider_name).all()
+
+    def get_twitter_mentions(self):
+        twitter_accounts = self.get_linked_accounts('twitter')
+        for account in twitter_accounts:
+            client_key = application.config['TWITTER_CONSUMER_KEY']
+            client_secret = application.config['TWITTER_CONSUMER_SECRET']
+            twitter = requests_oauthlib.OAuth1Session(
+                client_key,
+                client_secret=client_secret,
+                resource_owner_key=account.oauth_token,
+                resource_owner_secret=account.oauth_token_secret)
+
+            protected_url = 'https://api.twitter.com/1.1/statuses/mentions_timeline.json?count=4'
+            # TODO: Obviously a bit of error handling would not go amiss here.
+            mentions = twitter.get(protected_url).json()
+            for m in mentions:
+                yield m
+
 # TODO: Could this be a constant?
 def user_id_column(nullable=True):
     return database.Column(database.Integer, database.ForeignKey('user.id'), nullable=nullable)
@@ -79,11 +104,19 @@ def user_column(key_field, **kwargs):
 class AccountLink(database.Model):
     """Links a klaxon account to a login from an external provider such
     google, or twitter."""
+    # TODO: I actually think this should have an id of its own, the primary_key
+    # means that this must be unique, but is it not possible that two people have
+    # the same external_user_id on a different account? Eg. someone's twitter
+    # account id might be the same as someone else's google account id?
     external_user_id = database.Column(database.String, primary_key=True)
     provider_name = database.Column(database.String, nullable=False)
 
     user_id = user_id_column(nullable=False)
     user = user_column(user_id)
+
+    oauth_token = database.Column(database.String)
+    oauth_token_secret = database.Column(database.String)
+
 
 class UserLink(database.Model):
     id = database.Column(database.Integer, primary_key=True)
@@ -101,6 +134,44 @@ def inject_feedback_form():
 @application.template_filter('suppress_none')
 def supress_none(s, default=''):
     return s if s is not None else default
+
+def get_logged_in_user():
+    user_id = flask.session['user.id']
+    return User.query.filter_by(id=user_id).first()
+
+def log_user_in(user_id):
+    flask.session['user.id'] = user_id
+
+def link_account(external_user_id, provider_name):
+    account_link = AccountLink.query.filter_by(
+        external_user_id=external_user_id,
+        provider_name=provider_name).first()
+
+    user = get_logged_in_user()
+
+    # If there is no logged-in user and no account link, then we don't know what
+    # to do so we just tell the user that.
+    if not user and not account_link:
+        flask.flash("You're not logged in, you need to either log-in or sign-up")
+        return None
+
+    if account_link:
+        # In this case the user has already linked their 'provider_name' account
+        # to a klaxon one, and we can be relatively sure it is them so we can
+        # just log them in.
+        log_user_in(account_link.user_id)
+        return account_link
+
+    assert user
+    account_link = AccountLink(
+        external_user_id = external_user_id,
+        provider_name = provider_name,
+        user = user
+        )
+    database.session.add(account_link)
+    database.session.commit()
+    return account_link
+
 
 # TODO: Obviously this is probably pretty generalisable to other account kinds.
 # We probably just need to take the provider_name as an argument.
@@ -179,12 +250,64 @@ def do_google_login():
 
     return google_account_link_and_login(profile['id'], automatic_signup=True)
 
+def do_twitter_login():
+    client_key = application.config['TWITTER_CONSUMER_KEY']
+    client_secret = application.config['TWITTER_CONSUMER_SECRET']
+    twitter = requests_oauthlib.OAuth1Session(
+        client_key, client_secret=client_secret
+        )
+
+    oauth_token = request.args.get('oauth_token', None)
+    oauth_verifier = request.args.get('oauth_verifier', None)
+    if not oauth_token or not oauth_verifier:
+        request_token_url = 'https://api.twitter.com/oauth/request_token'
+        fetch_response = twitter.fetch_request_token(request_token_url)
+        flask.session['resource_owner_key'] = fetch_response.get('oauth_token')
+        flask.session['resource_owner_secret'] = fetch_response.get('oauth_token_secret')
+
+        base_authorization_url = 'https://api.twitter.com/oauth/authorize'
+        authorization_url = twitter.authorization_url(base_authorization_url)
+
+        return flask.redirect(authorization_url)
+
+    access_token_url = 'https://api.twitter.com/oauth/access_token'
+
+    twitter = requests_oauthlib.OAuth1Session(
+        client_key,
+        client_secret=client_secret,
+        resource_owner_key=flask.session['resource_owner_key'],
+        resource_owner_secret=flask.session['resource_owner_secret'],
+        verifier=oauth_verifier)
+    oauth_tokens = twitter.fetch_access_token(access_token_url)
+    oauth_token = oauth_tokens.get('oauth_token')
+    oauth_token_secret = oauth_tokens.get('oauth_token_secret')
+
+    protected_url = 'https://api.twitter.com/1.1/account/verify_credentials.json'
+
+    twitter = requests_oauthlib.OAuth1Session(
+        client_key,
+        client_secret=client_secret,
+        resource_owner_key=oauth_token,
+        resource_owner_secret=oauth_token_secret)
+
+    # TODO: Obviously a bit of error handling would not go amiss here.
+    profile = twitter.get(protected_url).json()
+    twitter_user_id = profile['id']
+    account_link = link_account(twitter_user_id, 'twitter')
+    account_link.oauth_token = oauth_token
+    account_link.oauth_token_secret = oauth_token_secret
+    database.session.commit()
+    return flask.redirect(flask.url_for('frontpage'))
+
 
 # TODO: Does this need to be both a 'GET' and a 'POST'?
 @application.route('/login/<provider_name>/', methods=['GET', 'POST'])
 def login(provider_name):
-    assert provider_name == 'google'
-    return do_google_login()
+    assert provider_name in ['google', 'twitter']
+    if provider_name == 'google':
+        return do_google_login()
+    if provider_name == 'twitter':
+        return do_twitter_login()
 
 
 
@@ -392,6 +515,11 @@ import threading
 import wsgiref.simple_server
 
 import unittest.mock as mock
+import uuid
+
+def get_new_unique_identifier():
+    return uuid.uuid4().hex
+
 
 def setup_testing(db_file='test.db'):
     reset_database = db_file == 'test.db'
@@ -681,6 +809,17 @@ def check_google_login(client, google_id):
         client.click('#google-login-link')
         client.css_exists('#logout-link')
 
+def check_twitter_link_current_account(client, twitter_id):
+    def login_side_effect():
+        link_account(twitter_id, 'twitter')
+        return flask.redirect(flask.url_for('frontpage'))
+    mock_do_twitter_login = mock.create_autospec(
+        do_twitter_login,
+        side_effect=login_side_effect)
+    with mock.patch('main.do_twitter_login', mock_do_twitter_login):
+        client.click('#link-twitter-account-link')
+        client.css_exists('#twitter-section')
+
 def check_messages(client, *texts):
     client.check_css_contains_texts('.notification', *texts)
 
@@ -737,7 +876,6 @@ def check_link(client, link_fields):
     client.css_exists('#{}-links.column'.format(category))
     client.check_css_contains_texts( 'a.{0}-link[href="{1}"]'.format(category, href), name)
 
-
 def test_main(client):
     port = application.config['TEST_SERVER_PORT']
     application.config['SERVER_NAME'] = 'localhost:{}'.format(port)
@@ -747,7 +885,7 @@ def test_main(client):
     client.driver.get(make_url('logout'))
     assert 'Klaxon' in client.page_source
 
-    test_google_id = '1234'
+    test_google_id = get_new_unique_identifier()
     check_google_login(client, test_google_id)
 
     logging.info("""Now that we are logged in, let's create a link.""")
@@ -767,9 +905,22 @@ def test_main(client):
     check_giving_feedback(client, feedback_fields)
     check_messages(client, "Thank you for your feedback.")
 
+    def get_twitter_mentions(user):
+        return [{'text': 'Hello', 'created_at': 'Now',
+                 'user': { 'name': 'Me',
+                           'screen_name': 'another_me' }}]
+    mock_get_twitter_mentions = mock.create_autospec(
+        User.get_twitter_mentions,
+        side_effect=get_twitter_mentions)
+    with mock.patch('main.User.get_twitter_mentions', mock_get_twitter_mentions):
+        check_twitter_link_current_account(client, get_new_unique_identifier())
+        client.css_exists('.twitter-mention')
+        client.check_css_contains_texts('.twitter-mention-text', 'Hello')
+
+
 def test_dialog_closes(client):
     client.driver.get(make_url('logout'))
-    test_google_id = '4321'
+    test_google_id = get_new_unique_identifier()
     check_google_login(client, test_google_id)
 
     dialogs = [
