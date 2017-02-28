@@ -61,6 +61,7 @@
 
 {% if user.has_linked_account('twitter') %}
   <div id="twitter-section">
+    <button id="reload-twitter-button" class="button is-success">Refresh</button>
     <h2>Twitter mentions</h2>
     {% for mention in user.get_twitter_mentions() %}
         <div class="box twitter-mention">
@@ -85,6 +86,41 @@
 {% block page_scripts %}
 <script>
 /* global $ */
+
+function refresh_twitter(){
+  var $refresh_button = $('#reload-twitter-button');
+  $refresh_button.addClass('is-loading');
+  $.ajax({type: "POST",
+    url: "{{url_for('get_my_twitter_stuff')}}",
+    success: function(data){
+      $section = $('#twitter-section');
+      $section.find('.twitter-mention').remove();
+      $.each(data['mentions'], function(index, mention){
+        $section.append('\
+          <div class="box twitter-mention">\
+            <article class="media">\
+              <div class="media-content">\
+                <div class="content">\
+                  <p class="twitter-mention-text">\
+                    <strong>' + mention['user']['name'] + '</strong>\
+                    <small>@' + mention['user']['screen_name'] + '</small>\
+                    <small>' + mention['created_at'] + '</small>\
+                    <br>' + mention['text'] + '\
+                  </p>\
+                </div>\
+              </div>\
+            </article>\
+          </div>');
+      });
+      $refresh_button.removeClass('is-loading');
+    },
+    error: function(data){
+      $delete_button.removeClass('is-loading');
+      message_user("Something went wrong refreshing twitter.", "danger");
+    }
+  });
+}
+
 /* TODO: Everywhere we use 'catid' we should probably be escaping stuff */
 function find_or_add_category(catid){
     var $category = $('#' + catid + '-links');
@@ -147,13 +183,14 @@ function delete_link(){
         },
         error: function(data){
           $delete_button.removeClass('is-loading');
-          alert('Hmm, something failed deleting the link.');
+          message_user("Something went wrong deleting the link.", "danger");
         }
       });
 }
 
 $(document).ready(function(){
     $('.update-link-button').click(update_link);
+    $('#reload-twitter-button').click(refresh_twitter);
 
     {% for link in user.links.all() %}
       add_link('{{link.category}}', '{{link.name}}', '{{link.address}}', {{link.id}});

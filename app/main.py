@@ -397,7 +397,8 @@ def add_update_link():
     link.name = form.name.data
     link.address = form.address.data
     database.session.commit()
-    return flask.jsonify({'link_id': link.id})
+    return success_response(results={'link_id': link.id})
+
 
 @application.route("/delete-link", methods=['POST'])
 def delete_link():
@@ -421,6 +422,20 @@ def delete_link():
     database.session.commit()
 
     return success_response()
+
+@application.route("/get-my-twitter-stuff/", methods=['POST'])
+def get_my_twitter_stuff():
+    assert request.method == 'POST'
+    user = get_current_user()
+    # TODO: Test this is out, in particular I guess you could use two
+    # windows to test this out manually.
+    if not user:
+        return unauthorized_response()
+
+    mentions = list(user.get_twitter_mentions())
+
+    return success_response(results={'mentions': mentions})
+
 
 @async
 def send_email_message_mailgun(email):
