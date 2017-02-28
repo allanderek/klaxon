@@ -922,6 +922,8 @@ def test_main(client):
     check_giving_feedback(client, feedback_fields)
     check_messages(client, "Thank you for your feedback.")
 
+    logging.info("""Check that we can link a twitter account and get a list of
+    the most recent mentions.""")
     def get_twitter_mentions(user):
         return [{'text': 'Hello', 'created_at': 'Now',
                  'user': { 'name': 'Me',
@@ -934,6 +936,20 @@ def test_main(client):
         client.css_exists('.twitter-mention')
         client.check_css_contains_texts('.twitter-mention-text', 'Hello')
 
+    logging.info("""Now check that clicking the 'Refresh twitter' button does
+    indeed get an updated list of twitter mentions.""")
+    def get_updated_twitter_mentions(user):
+        return [{'text': 'A different mention',
+                 'created_at': 'Now',
+                 'user': { 'name': 'Me',
+                           'screen_name': 'another_me'}}]
+    mock_get_twitter_mentions = mock.create_autospec(
+        User.get_twitter_mentions,
+        side_effect=get_updated_twitter_mentions)
+    with mock.patch('main.User.get_twitter_mentions', mock_get_twitter_mentions):
+        client.click('#reload-twitter-button')
+        client.css_exists('.twitter-mention')
+        client.check_css_contains_texts('.twitter-mention-text', 'A different mention')
 
 def test_dialog_closes(client):
     client.driver.get(make_url('logout'))
