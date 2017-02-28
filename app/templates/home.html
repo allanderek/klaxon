@@ -63,21 +63,6 @@
   <div id="twitter-section">
     <button id="reload-twitter-button" class="button is-success">Refresh</button>
     <h2>Twitter mentions</h2>
-    {% for mention in user.get_twitter_mentions() %}
-        <div class="box twitter-mention">
-          <article class="media">
-            <div class="media-content">
-              <div class="content">
-                <p class="twitter-mention-text">
-                  <strong>{{mention['user']['name']}}</strong> <small>@{{mention['user']['screen_name']}}</small> <small>{{mention['created_at']}}</small>
-                  <br>
-                  {{mention['text']}}
-                </p>
-              </div>
-            </div>
-          </article>
-        </div>
-    {% endfor %}
   </div>
 {% endif %}
 
@@ -190,7 +175,12 @@ function delete_link(){
 
 $(document).ready(function(){
     $('.update-link-button').click(update_link);
+    {% if user.has_linked_account('twitter') %}
+    refresh_twitter();
+    {% endif %}
+
     $('#reload-twitter-button').click(refresh_twitter);
+
 
     {% for link in user.links.all() %}
       add_link('{{link.category}}', '{{link.name}}', '{{link.address}}', {{link.id}});
