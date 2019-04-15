@@ -6,7 +6,7 @@ click==6.7
 coverage==4.3.4
 decorator==4.0.11
 flake8==3.3.0
-Flask==0.12
+Flask==0.12.3
 Flask-Migrate==2.0.3
 Flask-Script==2.0.5
 Flask-SQLAlchemy==2.1
@@ -15,7 +15,7 @@ Flask-WTF==0.14.2
 importmagic==0.1.7
 itsdangerous==0.24
 jedi==0.10.0
-Jinja2==2.9.5
+Jinja2==2.10.1
 Mako==1.0.6
 MarkupSafe==0.23
 mccabe==0.6.1
