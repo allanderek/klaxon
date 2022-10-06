@@ -15,7 +15,7 @@ Flask-WTF==0.14.2
 importmagic==0.1.7
 itsdangerous==0.24
 jedi==0.10.0
-Jinja2==2.10.1
+Jinja2==2.11.3
 Mako==1.2.2
 MarkupSafe==0.23
 mccabe==0.6.1
